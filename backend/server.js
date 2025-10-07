@@ -6,12 +6,14 @@ const app = express();
 const PORT = 5001;
 
 // --- CẤU HÌNH KẾT NỐI DATABASE ---
-// !!! QUAN TRỌNG: Thay đổi các giá trị này cho phù hợp với môi trường MySQL của bạn !!!
+// !!! QUAN TRỌNG: Hãy thay đổi thông tin dưới đây cho phù hợp với MySQL của bạn !!!
+// Nếu kết nối đến HOSTING, hãy dùng thông tin do nhà cung cấp hosting đưa cho bạn.
 const dbPool = mysql.createPool({
-  host: 'localhost',      // hoặc IP của MySQL server
-  user: 'root',           // user của bạn
-  password: '', // mật khẩu của bạn
-  database: 'akstore_db', // tên database bạn đã tạo
+  host: '127.0.0.1',      // THAY BẰNG HOST TỪ HOSTING CỦA BẠN (VD: 123.45.67.89 hoặc db.yourdomain.com)
+  user: 'root',           // THAY BẰNG USERNAME DATABASE TỪ HOSTING
+  password: 'Abc@12345', // <<<--- THAY MẬT KHẨU DATABASE TỪ HOSTING
+  database: 'webbanhangcongnghe', // <<<--- THAY BẰNG TÊN DATABASE TỪ HOSTING
+  port: 3306,             // Cổng mặc định của MySQL, thay đổi nếu hosting của bạn dùng cổng khác
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -48,66 +50,56 @@ const productQueryFields = `
     c.name as category
 `;
 
-const getOrdersWithItemsQuery = `
-    SELECT 
-        o.id,
-        o.user_id AS userId,
-        o.customer_name AS customerName,
-        o.phone,
-        o.address,
-        o.total,
-        o.status,
-        o.order_date AS orderDate,
-        o.payment_method AS paymentMethod,
-        CASE
-            WHEN COUNT(oi.id) = 0 THEN JSON_ARRAY()
-            ELSE JSON_ARRAYAGG(
-                JSON_OBJECT(
-                    'product', JSON_OBJECT(
-                        'id', p.id, 'name', p.name, 'brand', b.name, 'category', c.name, 
-                        'price', p.price, 'originalPrice', p.originalPrice, 'images', p.images, 
-                        'description', p.description, 'shortDescription', p.shortDescription, 
-                        'specs', p.specs, 'options', p.options, 'rating', p.rating, 
-                        'reviewCount', p.reviewCount, 'reviews', p.reviews, 'isFeatured', p.isFeatured, 
-                        'isBestSeller', p.isBestSeller
-                    ),
-                    'quantity', oi.quantity,
-                    'selectedOptions', oi.selected_options
-                )
-            )
-        END AS items
-    FROM orders o
-    LEFT JOIN order_items oi ON o.id = oi.order_id
-    LEFT JOIN products p ON oi.product_id = p.id
-    LEFT JOIN brands b ON p.brand_id = b.id
-    LEFT JOIN categories c ON p.category_id = c.id
-`;
-
-
-// GET ALL INITIAL DATA
+// GET ALL INITIAL DATA (REFACTORED FOR STABILITY)
 app.get('/api/initial-data', async (req, res) => {
     try {
+        // 1. Fetch all data in flat arrays
         const [products] = await dbPool.query(`SELECT ${productQueryFields} FROM products p JOIN brands b ON p.brand_id = b.id JOIN categories c ON p.category_id = c.id ORDER BY p.name ASC`);
         const [categories] = await dbPool.query('SELECT * FROM categories ORDER BY name ASC');
         const [brands] = await dbPool.query('SELECT * FROM brands ORDER BY name ASC');
         const [settings] = await dbPool.query('SELECT * FROM store_settings WHERE id = 1');
         const [users] = await dbPool.query('SELECT id, name, email, phone, addresses, role FROM users');
-        
-        // Lấy đơn hàng và các sản phẩm tương ứng
-        const [ordersData] = await dbPool.query(`${getOrdersWithItemsQuery} GROUP BY o.id ORDER BY o.order_date DESC`);
+        const [orders] = await dbPool.query('SELECT id, user_id AS userId, customer_name AS customerName, phone, address, total, status, order_date AS orderDate, payment_method AS paymentMethod FROM orders ORDER BY order_date DESC');
+        const [orderItems] = await dbPool.query('SELECT * FROM order_items');
 
+        // 2. Create a product map for efficient lookup
+        const productMap = new Map(products.map(p => [p.id, p]));
+
+        // 3. Assemble orders with their items in JavaScript
+        const assembledOrders = orders.map(order => {
+            const itemsForOrder = orderItems
+                .filter(item => item.order_id === order.id)
+                .map(item => {
+                    const productDetails = productMap.get(item.product_id);
+                    // Return a well-structured cart item, handling cases where product might be deleted
+                    return {
+                        product: productDetails || null, 
+                        quantity: item.quantity,
+                        selectedOptions: item.selected_options
+                    };
+                })
+                .filter(item => item.product !== null); // Ensure we don't include items for deleted products
+
+            return {
+                ...order,
+                items: itemsForOrder
+            };
+        });
+
+        // 4. Send the complete, correctly structured response
         res.json({
             products,
             categories,
             brands,
             storeSettings: settings[0] || { logo: '', slides: [] },
             users,
-            orders: ordersData,
+            orders: assembledOrders,
         });
     } catch (error) {
         handleError(res, error);
     }
 });
+
 
 // == AUTH ==
 app.post('/api/login', async (req, res) => {
@@ -336,9 +328,27 @@ app.post('/api/orders', async (req, res) => {
         
         await connection.commit();
 
-        const [newOrderData] = await dbPool.query(`${getOrdersWithItemsQuery} WHERE o.id = ? GROUP BY o.id`, [orderId]);
+        // Safely fetch the newly created order with its items
+        const [orderRows] = await connection.query('SELECT id, user_id AS userId, customer_name AS customerName, phone, address, total, status, order_date AS orderDate, payment_method AS paymentMethod FROM orders WHERE id = ?', [orderId]);
+        const [itemRows] = await connection.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
         
-        res.status(201).json(newOrderData[0]);
+        const productIds = itemRows.map(item => item.product_id);
+        const [productRows] = productIds.length > 0 ? await connection.query(`SELECT ${productQueryFields} FROM products p JOIN brands b ON p.brand_id = b.id JOIN categories c ON p.category_id = c.id WHERE p.id IN (?)`, [productIds]) : [[]];
+
+        const productMap = new Map(productRows.map(p => [p.id, p]));
+
+        const assembledItems = itemRows.map(item => ({
+            product: productMap.get(item.product_id) || null,
+            quantity: item.quantity,
+            selectedOptions: item.selected_options
+        })).filter(item => item.product);
+
+        const newOrder = {
+            ...orderRows[0],
+            items: assembledItems
+        };
+
+        res.status(201).json(newOrder);
 
     } catch (error) {
         await connection.rollback();
@@ -347,6 +357,7 @@ app.post('/api/orders', async (req, res) => {
         connection.release();
     }
 });
+
 
 app.put('/api/orders/:id/status', async (req, res) => {
     const { id } = req.params;

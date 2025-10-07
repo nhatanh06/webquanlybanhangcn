@@ -4,9 +4,10 @@ import { Product } from '../../types';
 import ProductFormModal from '../../components/admin/ProductFormModal';
 
 const AdminProductsPage: React.FC = () => {
-    const { products, addProduct, updateProduct, deleteProduct } = useAppContext();
+    const { products, addProduct, updateProduct, deleteProduct, commitChanges } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const handleOpenAddModal = () => {
         setEditingProduct(null);
@@ -23,38 +24,46 @@ const AdminProductsPage: React.FC = () => {
         setEditingProduct(null);
     };
 
-    const handleSaveProduct = async (productData: Product | Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => {
-        try {
-            if ('id' in productData) {
-                await updateProduct(productData as Product);
-            } else {
-                await addProduct(productData);
-            }
-            handleCloseModal();
-        } catch (error: any) {
-            alert(`Lỗi khi lưu sản phẩm: ${error.message}`);
+    const handleSaveProduct = (productData: Product | Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => {
+        if ('id' in productData) {
+            updateProduct(productData as Product);
+        } else {
+            addProduct(productData);
         }
+        handleCloseModal();
     };
     
-    const handleDeleteProduct = async (productId: string) => {
+    const handleDeleteProduct = (productId: string) => {
         if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này không?')) {
-            try {
-                await deleteProduct(productId);
-            } catch (error: any) {
-                alert(`Lỗi khi xóa sản phẩm: ${error.message}`);
-            }
+            deleteProduct(productId);
         }
+    };
+
+    const handleSaveChanges = () => {
+        commitChanges();
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 2000);
     };
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý sản phẩm</h1>
-                <button 
-                    onClick={handleOpenAddModal}
-                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow hover:shadow-lg transform hover:-translate-y-0.5">
-                    Thêm sản phẩm mới
-                </button>
+                <div className="flex items-center space-x-3">
+                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
+                    <button 
+                        onClick={handleSaveChanges}
+                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                        Lưu thay đổi
+                    </button>
+                    <button 
+                        onClick={handleOpenAddModal}
+                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Thêm sản phẩm mới
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">

@@ -161,9 +161,9 @@ const AccountPage: React.FC = () => {
         {/* Sidebar */}
         <aside className="w-full md:w-1/4">
           <nav className="flex flex-col space-y-2">
-            <button onClick={() => setActiveTab('profile')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'profile' ? 'bg-blue-600 text-white shadow' : 'hover:bg-blue-100 hover:text-blue-700'}`}>Thông tin</button>
-            <button onClick={() => setActiveTab('orders')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'orders' ? 'bg-blue-600 text-white shadow' : 'hover:bg-blue-100 hover:text-blue-700'}`}>Đơn hàng</button>
-            <button onClick={() => setActiveTab('addresses')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'addresses' ? 'bg-blue-600 text-white shadow' : 'hover:bg-blue-100 hover:text-blue-700'}`}>Địa chỉ</button>
+            <button onClick={() => setActiveTab('profile')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'profile' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Thông tin</button>
+            <button onClick={() => setActiveTab('orders')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'orders' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Đơn hàng</button>
+            <button onClick={() => setActiveTab('addresses')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'addresses' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Địa chỉ</button>
             <button onClick={handleLogout} className="text-left p-3 rounded-md hover:bg-red-50 text-red-600 font-medium transition-colors">Đăng xuất</button>
           </nav>
         </aside>

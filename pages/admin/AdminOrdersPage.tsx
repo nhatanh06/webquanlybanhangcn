@@ -1,18 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { OrderStatus } from '../../types';
 
 const AdminOrdersPage: React.FC = () => {
-    const { orders, updateOrderStatus } = useAppContext();
+    const { orders, updateOrderStatus, commitChanges } = useAppContext();
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
     
     const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
         updateOrderStatus(orderId, newStatus);
+    };
+
+    const handleSaveChanges = () => {
+        commitChanges();
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 2000);
     };
     
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý đơn hàng</h1>
+                 <div className="flex items-center space-x-3">
+                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
+                    <button 
+                        onClick={handleSaveChanges}
+                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                        Lưu thay đổi
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">

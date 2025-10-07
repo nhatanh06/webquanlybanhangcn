@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import StarRating from '../../components/StarRating';
@@ -7,29 +7,25 @@ import QuantitySelector from '../../components/QuantitySelector'; // Import comp
 
 // Component Form đánh giá
 const ReviewForm: React.FC<{ productId: string }> = ({ productId }) => {
-    const { addReview, user, isSubmitting } = useAppContext();
+    const { addReview, user } = useAppContext();
     const [author, setAuthor] = useState(user?.name || '');
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         if(!author.trim() || !comment.trim()) {
             setError("Vui lòng nhập tên và nội dung đánh giá.");
             return;
         }
-        try {
-            await addReview(productId, { author, rating, comment });
-            setAuthor(user?.name || '');
-            setRating(5);
-            setComment('');
-            setSubmitted(true);
-        } catch (err: any) {
-            setError(err.message || "Gửi đánh giá thất bại.");
-        }
+        addReview(productId, { author, rating, comment });
+        setAuthor(user?.name || '');
+        setRating(5);
+        setComment('');
+        setSubmitted(true);
     };
 
     if (submitted) {
@@ -61,10 +57,9 @@ const ReviewForm: React.FC<{ productId: string }> = ({ productId }) => {
             </div>
             <button 
                 type="submit" 
-                disabled={isSubmitting}
-                className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
             >
-                {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                Gửi đánh giá
             </button>
         </form>
     );
@@ -86,6 +81,12 @@ const ProductDetailPage: React.FC = () => {
         return initialOptions;
     });
     const [activeImage, setActiveImage] = useState(0);
+
+    const uniqueImages = useMemo(() => {
+        if (!product) return [];
+        // Lọc các ảnh rỗng hoặc null và tạo một Set để có các ảnh duy nhất
+        return [...new Set(product.images.filter(img => img))];
+    }, [product]);
 
     if (!product) {
         return <div className="text-center py-20">Không tìm thấy sản phẩm.</div>;
@@ -116,15 +117,17 @@ const ProductDetailPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                 <div>
                     <div className="mb-4">
-                        <img src={product.images[activeImage]} alt={product.name} className="w-full rounded-lg shadow-lg"/>
+                        <img src={uniqueImages[activeImage]} alt={product.name} className="w-full rounded-lg shadow-lg"/>
                     </div>
-                    <div className="flex space-x-2">
-                        {product.images.map((img, index) => (
-                             <img key={index} src={img} alt={`${product.name} thumbnail ${index+1}`}
-                                onClick={() => setActiveImage(index)}
-                                className={`w-24 h-24 object-cover rounded-md cursor-pointer border-2 ${index === activeImage ? 'border-blue-500' : 'border-transparent'}`} />
-                        ))}
-                    </div>
+                    {uniqueImages.length > 1 && (
+                        <div className="flex space-x-2">
+                            {uniqueImages.map((img, index) => (
+                                 <img key={index} src={img} alt={`${product.name} thumbnail ${index+1}`}
+                                    onClick={() => setActiveImage(index)}
+                                    className={`w-24 h-24 object-cover rounded-md cursor-pointer border-2 ${index === activeImage ? 'border-blue-500' : 'border-transparent'}`} />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div>

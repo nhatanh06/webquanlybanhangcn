@@ -4,9 +4,10 @@ import { Brand } from '../../types';
 import BrandFormModal from '../../components/admin/BrandFormModal';
 
 const AdminBrandsPage: React.FC = () => {
-    const { brands, addBrand, updateBrand, deleteBrand } = useAppContext();
+    const { brands, addBrand, updateBrand, deleteBrand, commitChanges } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const handleOpenAddModal = () => {
         setEditingBrand(null);
@@ -23,38 +24,50 @@ const AdminBrandsPage: React.FC = () => {
         setEditingBrand(null);
     };
 
-    const handleSaveBrand = async (brandData: Brand | Omit<Brand, 'id'>) => {
-        try {
-            if ('id' in brandData) {
-                await updateBrand(brandData as Brand);
-            } else {
-                await addBrand(brandData);
-            }
-            handleCloseModal();
-        } catch (error: any) {
-            alert(`Lỗi: ${error.message}`);
+    const handleSaveBrand = (brandData: Brand | Omit<Brand, 'id'>) => {
+        if ('id' in brandData) {
+            updateBrand(brandData as Brand);
+        } else {
+            addBrand(brandData);
         }
+        handleCloseModal();
     };
     
-    const handleDeleteBrand = async (brand: Brand) => {
+    const handleDeleteBrand = (brand: Brand) => {
         if (window.confirm(`Bạn có chắc chắn muốn xóa thương hiệu "${brand.name}" không?`)) {
             try {
-                await deleteBrand(brand);
+                deleteBrand(brand.id);
             } catch (error: any) {
                 alert(`Không thể xóa: ${error.message}`);
             }
         }
     };
 
+    const handleSaveChanges = () => {
+        commitChanges();
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 2000);
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý Thương hiệu</h1>
-                <button 
-                    onClick={handleOpenAddModal}
-                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow hover:shadow-lg transform hover:-translate-y-0.5">
-                    Thêm thương hiệu mới
-                </button>
+                <div className="flex items-center space-x-3">
+                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
+                    <button 
+                        onClick={handleSaveChanges}
+                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                        Lưu thay đổi
+                    </button>
+                    <button 
+                        onClick={handleOpenAddModal}
+                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Thêm thương hiệu mới
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">

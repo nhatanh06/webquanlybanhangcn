@@ -4,9 +4,10 @@ import { Category } from '../../types';
 import CategoryFormModal from '../../components/admin/CategoryFormModal';
 
 const AdminCategoriesPage: React.FC = () => {
-    const { categories, addCategory, updateCategory, deleteCategory } = useAppContext();
+    const { categories, addCategory, updateCategory, deleteCategory, commitChanges } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const handleOpenAddModal = () => {
         setEditingCategory(null);
@@ -23,38 +24,50 @@ const AdminCategoriesPage: React.FC = () => {
         setEditingCategory(null);
     };
 
-    const handleSaveCategory = async (categoryData: Category | Omit<Category, 'id'>) => {
-        try {
-            if ('id' in categoryData) {
-                await updateCategory(categoryData as Category);
-            } else {
-                await addCategory(categoryData);
-            }
-            handleCloseModal();
-        } catch (error: any) {
-            alert(`Lỗi: ${error.message}`);
+    const handleSaveCategory = (categoryData: Category | Omit<Category, 'id'>) => {
+        if ('id' in categoryData) {
+            updateCategory(categoryData as Category);
+        } else {
+            addCategory(categoryData);
         }
+        handleCloseModal();
     };
     
-    const handleDeleteCategory = async (category: Category) => {
+    const handleDeleteCategory = (category: Category) => {
         if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category.name}" không?`)) {
             try {
-                await deleteCategory(category);
+                deleteCategory(category.id);
             } catch (error: any) {
                 alert(`Không thể xóa: ${error.message}`);
             }
         }
     };
 
+    const handleSaveChanges = () => {
+        commitChanges();
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 2000);
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý Danh mục</h1>
-                <button 
-                    onClick={handleOpenAddModal}
-                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow hover:shadow-lg transform hover:-translate-y-0.5">
-                    Thêm danh mục mới
-                </button>
+                <div className="flex items-center space-x-3">
+                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
+                    <button 
+                        onClick={handleSaveChanges}
+                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                        Lưu thay đổi
+                    </button>
+                    <button 
+                        onClick={handleOpenAddModal}
+                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Thêm danh mục mới
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">

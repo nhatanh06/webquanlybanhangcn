@@ -1,309 +1,301 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { Product, CartItem, Order, User, OrderStatus, Category, Brand, StoreSettings, Slide, Review } from '../types';
+import { Product, CartItem, Order, User, OrderStatus, Category, Brand, StoreSettings, Review } from '../types';
+import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_USERS, INITIAL_STORE_SETTINGS } from '../constants';
 
-const API_BASE_URL = 'http://localhost:5001/api';
-
-// Định nghĩa kiểu cho các giá trị trong context
-interface AppContextType {
-  // State
+// Kiểu dữ liệu cho trạng thái của ứng dụng
+interface AppState {
   products: Product[];
   categories: Category[];
   brands: Brand[];
-  cart: CartItem[];
   orders: Order[];
   users: User[];
-  user: User | null;
   storeSettings: StoreSettings;
-  isLoading: boolean; // For initial data load
-  isSubmitting: boolean; // For form submissions
-  error: string | null;
+}
 
-  // Cart
+// Kiểu dữ liệu cho context
+interface AppContextType extends AppState {
+  user: User | null;
+  cart: CartItem[];
   addToCart: (product: Product, quantity: number, selectedOptions: { [key: string]: string }) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
-  
-  // Order
-  placeOrder: (customerInfo: { name: string; phone: string; address: string; paymentMethod: 'COD' | 'Bank Transfer' | 'Momo' }) => Promise<Order | null>;
-  cancelOrder: (orderId: string) => Promise<void>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  
-  // Auth
-  login: (email: string, password: string) => Promise<boolean>;
+  placeOrder: (customerInfo: { name: string; phone: string; address: string; paymentMethod: 'COD' | 'Bank Transfer' | 'Momo' }) => Order | null;
+  login: (email: string, password: string) => boolean;
   logout: () => void;
-  registerUser: (userData: Omit<User, 'id' | 'role' | 'addresses'> & { password: string; address?: string }) => Promise<{ success: boolean; message?: string }>;
-  
-  // Admin - Product
-  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => Promise<void>;
-  updateProduct: (product: Product) => Promise<void>;
-  deleteProduct: (productId: string) => Promise<void>;
-  
-  // Admin - Category
-  addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
-  updateCategory: (category: Category) => Promise<void>;
-  deleteCategory: (category: Category) => Promise<void>;
-
-  // Admin - Brand
-  addBrand: (brand: Omit<Brand, 'id'>) => Promise<void>;
-  updateBrand: (brand: Brand) => Promise<void>;
-  deleteBrand: (brand: Brand) => Promise<void>;
-
-  // Admin - Store Settings
-  updateStoreSettings: (settings: StoreSettings) => Promise<void>;
-
-  // Review
-  addReview: (productId: string, reviewData: Omit<Review, 'id' | 'date'>) => Promise<void>;
+  // FIX: Added optional password property to registerUser to match usage in RegisterPage.tsx
+  registerUser: (userData: Omit<User, 'id' | 'role' | 'addresses'> & { password?: string; address?: string }) => { success: boolean; message?: string };
+  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => void;
+  updateProduct: (product: Product) => void;
+  deleteProduct: (productId: string) => void;
+  addReview: (productId: string, reviewData: Omit<Review, 'id' | 'date'>) => void;
+  cancelOrder: (orderId: string) => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  addCategory: (category: Omit<Category, 'id'>) => void;
+  updateCategory: (category: Category) => void;
+  deleteCategory: (categoryId: string) => void;
+  addBrand: (brand: Omit<Brand, 'id'>) => void;
+  updateBrand: (brand: Brand) => void;
+  deleteBrand: (brandId: string) => void;
+  updateStoreSettings: (settings: StoreSettings) => void;
+  commitChanges: () => void; // For manual save button
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const getInitialState = (): AppState => {
+  try {
+    const savedState = localStorage.getItem('akstore_app_state');
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      // Đảm bảo tất cả các trường đều tồn tại để tránh lỗi
+      return {
+        products: parsedState.products || INITIAL_PRODUCTS,
+        categories: parsedState.categories || INITIAL_CATEGORIES,
+        brands: parsedState.brands || INITIAL_BRANDS,
+        orders: parsedState.orders || [],
+        users: parsedState.users || INITIAL_USERS,
+        storeSettings: parsedState.storeSettings || INITIAL_STORE_SETTINGS,
+      };
+    }
+  } catch (e) {
+    console.error("Lỗi khi tải trạng thái từ localStorage", e);
+  }
+  return {
+    products: INITIAL_PRODUCTS,
+    categories: INITIAL_CATEGORIES,
+    brands: INITIAL_BRANDS,
+    orders: [],
+    users: INITIAL_USERS,
+    storeSettings: INITIAL_STORE_SETTINGS,
+  };
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>({ logo: '', slides: [] });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch all initial data from backend
-  const fetchInitialData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const [appState, setAppState] = useState<AppState>(getInitialState);
+  const [user, setUser] = useState<User | null>(() => {
     try {
-        const response = await fetch(`${API_BASE_URL}/initial-data`);
-        if (!response.ok) {
-            throw new Error(`Lỗi kết nối server: ${response.statusText}`);
-        }
-        const data = await response.json();
-        setProducts(data.products || []);
-        setCategories(data.categories || []);
-        setBrands(data.brands || []);
-        setStoreSettings(data.storeSettings || { logo: '', slides: [] });
-        setUsers(data.users || []);
-        setOrders(data.orders || []);
-    } catch (err: any) {
-        setError(err.message || 'Không thể tải dữ liệu từ server. Vui lòng đảm bảo backend đang chạy.');
-        console.error(err);
-    } finally {
-        setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchInitialData();
+      const savedUser = localStorage.getItem('akstore_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) { return null; }
+  });
+  const [cart, setCart] = useState<CartItem[]>(() => {
     try {
-        const savedUser = localStorage.getItem('techShopUser');
-        if (savedUser) setUser(JSON.parse(savedUser));
+      const savedCart = localStorage.getItem('akstore_cart');
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (e) { return []; }
+  });
 
-        const savedCart = localStorage.getItem('techShopCart');
-        if (savedCart) setCart(JSON.parse(savedCart));
-    } catch (e) {
-        console.error("Lỗi khi đọc session từ localStorage", e);
-    }
-  }, [fetchInitialData]);
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('akstore_app_state', JSON.stringify(appState));
+    } catch (e) { console.error("Lỗi khi lưu trạng thái vào localStorage", e); }
+  }, [appState]);
 
   useEffect(() => {
-      try {
-          localStorage.setItem('techShopCart', JSON.stringify(cart));
-      } catch (e) {
-          console.error("Lỗi lưu giỏ hàng vào localStorage", e);
-      }
-  }, [cart]);
-
-  useEffect(() => {
-      try {
-          if (user) {
-              localStorage.setItem('techShopUser', JSON.stringify(user));
-          } else {
-              localStorage.removeItem('techShopUser');
-          }
-      } catch (e) {
-          console.error("Lỗi lưu người dùng vào localStorage", e);
-      }
+    try {
+      localStorage.setItem('akstore_user', JSON.stringify(user));
+    } catch (e) { console.error("Lỗi khi lưu người dùng vào localStorage", e); }
   }, [user]);
 
-  // --- API HELPER ---
-  const apiCall = async (endpoint: string, method: string = 'GET', body: any = null) => {
-    setIsSubmitting(true);
+  useEffect(() => {
     try {
-        const options: RequestInit = {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-        };
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.message || 'Yêu cầu API thất bại');
-        }
-        if (response.status === 204 || (response.headers.get('content-length') && parseInt(response.headers.get('content-length')!) === 0) ) {
-            return null; // Handle No Content responses
-        }
-        return response.json();
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
+      localStorage.setItem('akstore_cart', JSON.stringify(cart));
+    } catch (e) { console.error("Lỗi khi lưu giỏ hàng vào localStorage", e); }
+  }, [cart]);
 
-  // --- ACTIONS ---
+  // --- Cart Actions ---
   const addToCart = useCallback((product: Product, quantity: number, selectedOptions: { [key: string]: string }) => {
     setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.product.id === product.id && JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions));
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.product.id === product.id && JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions)
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
+      const existingItemIndex = prevCart.findIndex(item => item.product.id === product.id && JSON.stringify(item.selectedOptions) === JSON.stringify(selectedOptions));
+      if (existingItemIndex > -1) {
+        const newCart = [...prevCart];
+        newCart[existingItemIndex].quantity += quantity;
+        return newCart;
       }
       return [...prevCart, { product, quantity, selectedOptions }];
     });
   }, []);
   
-  const removeFromCart = useCallback((productId: string) => {
-    setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
-  }, []);
-
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
-    setCart(prevCart =>
-      prevCart.map(item =>
-        item.product.id === productId ? { ...item, quantity: Math.max(1, quantity) } : item
-      )
-    );
-  }, []);
-
+  const removeFromCart = useCallback((productId: string) => setCart(prev => prev.filter(item => item.product.id !== productId)), []);
+  const updateQuantity = useCallback((productId: string, quantity: number) => setCart(prev => prev.map(item => item.product.id === productId ? { ...item, quantity: Math.max(1, quantity) } : item)), []);
   const clearCart = useCallback(() => setCart([]), []);
   const getCartTotal = useCallback(() => cart.reduce((total, item) => total + item.product.price * item.quantity, 0), [cart]);
 
-  const placeOrder = async (customerInfo: { name: string; phone: string; address: string; paymentMethod: 'COD' | 'Bank Transfer' | 'Momo' }) => {
-    if (cart.length === 0) return null;
-    const orderData = {
-        ...customerInfo,
-        userId: user?.id || null,
-        items: cart,
-        total: getCartTotal(),
-    };
-    const newOrder = await apiCall('/orders', 'POST', orderData);
-    if(newOrder) {
-        setOrders(prev => [newOrder, ...prev]);
-        clearCart();
+  // --- Auth & Order ---
+  const login = (email: string, password: string) => {
+    const foundUser = appState.users.find(u => u.email === email);
+    // Lưu ý: trong thực tế không bao giờ lưu mật khẩu dạng plain text
+    const passwordsMatch = (email === 'admin@example.com' && password === '1') || (email === 'user@example.com' && password === '1');
+    if (foundUser && passwordsMatch) {
+      setUser(foundUser);
+      return true;
     }
+    return false;
+  };
+  const logout = useCallback(() => { setUser(null); setCart([]); }, []);
+  
+  // FIX: Added optional password property to registerUser to match usage in RegisterPage.tsx
+  const registerUser = (userData: Omit<User, 'id' | 'role' | 'addresses'> & { password?: string; address?: string }) => {
+    if (appState.users.some(u => u.email === userData.email)) {
+      return { success: false, message: 'Email này đã tồn tại.' };
+    }
+    const newUser: User = {
+      id: `user-${Date.now()}`,
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      addresses: userData.address ? [userData.address] : [],
+      role: 'customer',
+    };
+    setAppState(prev => ({ ...prev, users: [...prev.users, newUser] }));
+    setUser(newUser);
+    return { success: true };
+  };
+
+  const placeOrder = (customerInfo: { name: string; phone: string; address: string; paymentMethod: 'COD' | 'Bank Transfer' | 'Momo' }) => {
+    if (cart.length === 0) return null;
+    const newOrder: Order = {
+      id: `ORDER-${Date.now()}`,
+      customerName: customerInfo.name,
+      phone: customerInfo.phone,
+      address: customerInfo.address,
+      items: cart,
+      total: getCartTotal(),
+      status: OrderStatus.Pending,
+      orderDate: new Date().toISOString(),
+      paymentMethod: customerInfo.paymentMethod,
+    };
+    setAppState(prev => ({ ...prev, orders: [newOrder, ...prev.orders] }));
+    clearCart();
     return newOrder;
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-        const loggedInUser = await apiCall('/login', 'POST', { email, password });
-        setUser(loggedInUser);
-        return true;
-    } catch (error) {
-        console.error("Login failed:", error);
-        return false;
-    }
-  };
-
-  const logout = useCallback(() => {
-    setUser(null);
-    setCart([]);
-  }, []);
-  
-  const registerUser = async (userData: any) => {
-    try {
-        const newUser = await apiCall('/register', 'POST', userData);
-        setUser(newUser);
-        return { success: true };
-    } catch (error: any) {
-        return { success: false, message: error.message };
-    }
-  };
-  
   // --- Admin Actions ---
-  const addProduct = async (productData: any) => {
-    const newProduct = await apiCall('/products', 'POST', productData);
-    setProducts(prev => [newProduct, ...prev]);
-  };
-  const updateProduct = async (updatedProduct: Product) => {
-    const result = await apiCall(`/products/${updatedProduct.id}`, 'PUT', updatedProduct);
-    setProducts(prev => prev.map(p => p.id === result.id ? result : p));
-  };
-  const deleteProduct = async (productId: string) => {
-    await apiCall(`/products/${productId}`, 'DELETE');
-    setProducts(prev => prev.filter(p => p.id !== productId));
+  const addProduct = (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => {
+    const newProduct: Product = {
+      ...productData,
+      id: `${productData.name.toLowerCase().replace(/ /g, '-')}-${Date.now()}`,
+      rating: 0,
+      reviewCount: 0,
+      reviews: [],
+    };
+    setAppState(prev => ({ ...prev, products: [newProduct, ...prev.products] }));
   };
 
-  const addCategory = async (categoryData: any) => {
-    const newCategory = await apiCall('/categories', 'POST', categoryData);
-    setCategories(prev => [newCategory, ...prev]);
-  };
-  const updateCategory = async (updatedCategory: Category) => {
-    const result = await apiCall(`/categories/${updatedCategory.id}`, 'PUT', updatedCategory);
-    setCategories(prev => prev.map(c => c.id === result.id ? result : c));
-  };
-  const deleteCategory = async (category: Category) => {
-    await apiCall(`/categories/${category.id}`, 'DELETE');
-    setCategories(prev => prev.filter(c => c.id !== category.id));
+  const updateProduct = (updatedProduct: Product) => {
+    setAppState(prev => ({
+      ...prev,
+      products: prev.products.map(p => p.id === updatedProduct.id ? updatedProduct : p)
+    }));
   };
 
-  const addBrand = async (brandData: any) => {
-    const newBrand = await apiCall('/brands', 'POST', brandData);
-    setBrands(prev => [newBrand, ...prev]);
-  };
-  const updateBrand = async (updatedBrand: Brand) => {
-    const result = await apiCall(`/brands/${updatedBrand.id}`, 'PUT', updatedBrand);
-    setBrands(prev => prev.map(b => b.id === result.id ? result : b));
-  };
-  const deleteBrand = async (brand: Brand) => {
-    await apiCall(`/brands/${brand.id}`, 'DELETE');
-    setBrands(prev => prev.filter(b => b.id !== brand.id));
+  const deleteProduct = (productId: string) => {
+      setAppState(prev => ({
+          ...prev,
+          products: prev.products.filter(p => p.id !== productId)
+      }));
   };
 
-  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    await apiCall(`/orders/${orderId}/status`, 'PUT', { status });
-    setOrders(prev => prev.map(order => order.id === orderId ? { ...order, status } : order));
+  const addReview = (productId: string, reviewData: Omit<Review, 'id' | 'date'>) => {
+      setAppState(prev => {
+          const newProducts = prev.products.map(p => {
+              if (p.id === productId) {
+                  const newReview: Review = {
+                      ...reviewData,
+                      id: Date.now(),
+                      date: new Date().toISOString(),
+                  };
+                  const updatedReviews = [newReview, ...p.reviews];
+                  const newReviewCount = updatedReviews.length;
+                  const newTotalRating = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
+                  const newAverageRating = parseFloat((newTotalRating / newReviewCount).toFixed(1));
+
+                  return { ...p, reviews: updatedReviews, rating: newAverageRating, reviewCount: newReviewCount };
+              }
+              return p;
+          });
+          return { ...prev, products: newProducts };
+      });
   };
 
-  const cancelOrder = async (orderId: string) => {
-      await updateOrderStatus(orderId, OrderStatus.Cancelled);
+  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+    setAppState(prev => ({
+      ...prev,
+      orders: prev.orders.map(o => o.id === orderId ? { ...o, status } : o)
+    }));
+  };
+  
+  const cancelOrder = (orderId: string) => updateOrderStatus(orderId, OrderStatus.Cancelled);
+
+  const addCategory = (categoryData: Omit<Category, 'id'>) => {
+    const newCategory = { ...categoryData, id: `${categoryData.name.toLowerCase().replace(/ /g, '-')}-${Date.now()}` };
+    setAppState(prev => ({ ...prev, categories: [newCategory, ...prev.categories] }));
+  };
+  const updateCategory = (updatedCategory: Category) => {
+    setAppState(prev => ({ ...prev, categories: prev.categories.map(c => c.id === updatedCategory.id ? updatedCategory : c) }));
+  };
+  const deleteCategory = (categoryId: string) => {
+    const categoryInUse = appState.products.some(p => p.category === appState.categories.find(c => c.id === categoryId)?.name);
+    if (categoryInUse) {
+      throw new Error("Không thể xóa danh mục vì vẫn còn sản phẩm đang sử dụng.");
+    }
+    setAppState(prev => ({ ...prev, categories: prev.categories.filter(c => c.id !== categoryId) }));
   };
 
-  const updateStoreSettings = async (settings: StoreSettings) => {
-      const updatedSettings = await apiCall('/settings', 'PUT', settings);
-      setStoreSettings(updatedSettings);
+  const addBrand = (brandData: Omit<Brand, 'id'>) => {
+    const newBrand = { ...brandData, id: `${brandData.name.toLowerCase().replace(/ /g, '-')}-${Date.now()}` };
+    setAppState(prev => ({ ...prev, brands: [newBrand, ...prev.brands] }));
+  };
+  const updateBrand = (updatedBrand: Brand) => {
+    setAppState(prev => ({ ...prev, brands: prev.brands.map(b => b.id === updatedBrand.id ? updatedBrand : b) }));
+  };
+  const deleteBrand = (brandId: string) => {
+    const brandInUse = appState.products.some(p => p.brand === appState.brands.find(b => b.id === brandId)?.name);
+    if (brandInUse) {
+      throw new Error("Không thể xóa thương hiệu vì vẫn còn sản phẩm đang sử dụng.");
+    }
+    setAppState(prev => ({ ...prev, brands: prev.brands.filter(b => b.id !== brandId) }));
+  };
+  
+  const updateStoreSettings = (settings: StoreSettings) => {
+    setAppState(prev => ({ ...prev, storeSettings: settings }));
   };
 
-  const addReview = async (productId: string, reviewData: Omit<Review, 'id' | 'date'>) => {
-    const updatedProduct = await apiCall(`/products/${productId}/reviews`, 'POST', reviewData);
-    setProducts(prev => prev.map(p => p.id === productId ? updatedProduct : p));
+  const commitChanges = () => {
+    // This function is for UI feedback only, as saving is automatic via useEffect
+    console.log("Thay đổi đã được lưu tự động.");
   };
 
-  const value = {
-    products, categories, brands, cart, orders, users, user, storeSettings, isLoading, isSubmitting, error,
-    addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal,
-    placeOrder, login, logout, registerUser,
-    addProduct, updateProduct, deleteProduct,
-    cancelOrder, updateOrderStatus,
-    addCategory, updateCategory, deleteCategory,
-    addBrand, updateBrand, deleteBrand,
-    updateStoreSettings,
-    addReview,
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={{ 
+        ...appState, user, cart,
+        addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal,
+        login, logout, registerUser, placeOrder,
+        addProduct, updateProduct, deleteProduct, addReview,
+        updateOrderStatus, cancelOrder,
+        addCategory, updateCategory, deleteCategory,
+        addBrand, updateBrand, deleteBrand,
+        updateStoreSettings, commitChanges
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
 };
 
+// Custom hook to use the context
 export const useAppContext = () => {
   const context = useContext(AppContext);
   if (context === undefined) {
-    throw new Error('useAppContext must be used within an AppProvider');
+    throw new Error('useAppContext phải được sử dụng bên trong AppProvider');
   }
-  return context;
+  // Simulate the structure of the full-stack context to minimize component changes
+  return {
+    ...context,
+    isLoading: false,
+    isSubmitting: false,
+    error: null,
+  };
 };

@@ -14,27 +14,26 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const AdminAppearancePage: React.FC = () => {
-    const { storeSettings, updateStoreSettings } = useAppContext();
+    const { storeSettings, updateStoreSettings, commitChanges } = useAppContext();
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSlide, setEditingSlide] = useState<Slide | null>(null);
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             try {
                 const base64 = await fileToBase64(e.target.files[0]);
-                await updateStoreSettings({ ...storeSettings, logo: base64 });
-                alert("Đã cập nhật logo!");
+                updateStoreSettings({ ...storeSettings, logo: base64 });
             } catch (error) {
                 alert("Lỗi khi tải logo. Vui lòng thử lại.");
             }
         }
     };
 
-    const handleDeleteLogo = async () => {
+    const handleDeleteLogo = () => {
         if (window.confirm('Bạn có chắc chắn muốn xóa logo hiện tại không? Logo sẽ được thay thế bằng tên cửa hàng.')) {
-            await updateStoreSettings({ ...storeSettings, logo: '' });
-            alert("Đã xóa logo!");
+            updateStoreSettings({ ...storeSettings, logo: '' });
         }
     };
     
@@ -67,10 +66,25 @@ const AdminAppearancePage: React.FC = () => {
         }
     };
 
+    const handleSaveChanges = () => {
+        commitChanges();
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 2000);
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý Giao diện cửa hàng</h1>
+                 <div className="flex items-center space-x-3">
+                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
+                    <button 
+                        onClick={handleSaveChanges}
+                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                        Lưu thay đổi
+                    </button>
+                </div>
             </div>
 
             {/* Logo Management */}
@@ -90,7 +104,7 @@ const AdminAppearancePage: React.FC = () => {
                      <label htmlFor="logo-upload" className="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors inline-block">
                         Chọn logo mới
                     </label>
-                    <input type="file" id="logo-upload" accept="image/*" className="hidden" onChange={handleLogoChange}/>
+                    <input type="file" id="logo-upload" accept="image/*" className="hidden" onChange={handleLogoChange} />
                     {storeSettings.logo && (
                         <button onClick={handleDeleteLogo} className="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors shadow hover:shadow-lg">
                             Xóa Logo
