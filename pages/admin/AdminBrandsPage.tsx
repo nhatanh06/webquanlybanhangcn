@@ -4,10 +4,9 @@ import { Brand } from '../../types';
 import BrandFormModal from '../../components/admin/BrandFormModal';
 
 const AdminBrandsPage: React.FC = () => {
-    const { brands, addBrand, updateBrand, deleteBrand, commitChanges } = useAppContext();
+    const { brands, addBrand, updateBrand, deleteBrand, isSubmitting } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
-    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const handleOpenAddModal = () => {
         setEditingBrand(null);
@@ -24,50 +23,36 @@ const AdminBrandsPage: React.FC = () => {
         setEditingBrand(null);
     };
 
-    const handleSaveBrand = (brandData: Brand | Omit<Brand, 'id'>) => {
+    const handleSaveBrand = async (brandData: Brand | Omit<Brand, 'id'>) => {
         if ('id' in brandData) {
-            updateBrand(brandData as Brand);
+            await updateBrand(brandData as Brand);
         } else {
-            addBrand(brandData);
+            await addBrand(brandData);
         }
         handleCloseModal();
     };
     
-    const handleDeleteBrand = (brand: Brand) => {
+    const handleDeleteBrand = async (brand: Brand) => {
         if (window.confirm(`Bạn có chắc chắn muốn xóa thương hiệu "${brand.name}" không?`)) {
             try {
-                deleteBrand(brand.id);
+                await deleteBrand(brand.id);
             } catch (error: any) {
                 alert(`Không thể xóa: ${error.message}`);
             }
         }
     };
 
-    const handleSaveChanges = () => {
-        commitChanges();
-        setShowSaveSuccess(true);
-        setTimeout(() => setShowSaveSuccess(false), 2000);
-    };
-
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý Thương hiệu</h1>
-                <div className="flex items-center space-x-3">
-                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
-                    <button 
-                        onClick={handleSaveChanges}
-                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
-                    >
-                        Lưu thay đổi
-                    </button>
-                    <button 
-                        onClick={handleOpenAddModal}
-                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        Thêm thương hiệu mới
-                    </button>
-                </div>
+                <button 
+                    onClick={handleOpenAddModal}
+                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? 'Đang xử lý...' : 'Thêm thương hiệu mới'}
+                </button>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -87,8 +72,8 @@ const AdminBrandsPage: React.FC = () => {
                                         <span className="font-medium text-gray-900">{brand.name}</span>
                                     </td>
                                     <td className="p-3 whitespace-nowrap">
-                                        <button onClick={() => handleOpenEditModal(brand)} className="text-blue-600 hover:text-blue-800 mr-4 font-medium">Sửa</button>
-                                        <button onClick={() => handleDeleteBrand(brand)} className="text-red-600 hover:text-red-800 font-medium">Xóa</button>
+                                        <button onClick={() => handleOpenEditModal(brand)} className="text-blue-600 hover:text-blue-800 mr-4 font-medium" disabled={isSubmitting}>Sửa</button>
+                                        <button onClick={() => handleDeleteBrand(brand)} className="text-red-600 hover:text-red-800 font-medium" disabled={isSubmitting}>Xóa</button>
                                     </td>
                                 </tr>
                             ))}

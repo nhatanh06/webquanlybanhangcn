@@ -4,10 +4,9 @@ import { Category } from '../../types';
 import CategoryFormModal from '../../components/admin/CategoryFormModal';
 
 const AdminCategoriesPage: React.FC = () => {
-    const { categories, addCategory, updateCategory, deleteCategory, commitChanges } = useAppContext();
+    const { categories, addCategory, updateCategory, deleteCategory, isSubmitting } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const handleOpenAddModal = () => {
         setEditingCategory(null);
@@ -24,50 +23,36 @@ const AdminCategoriesPage: React.FC = () => {
         setEditingCategory(null);
     };
 
-    const handleSaveCategory = (categoryData: Category | Omit<Category, 'id'>) => {
+    const handleSaveCategory = async (categoryData: Category | Omit<Category, 'id'>) => {
         if ('id' in categoryData) {
-            updateCategory(categoryData as Category);
+            await updateCategory(categoryData as Category);
         } else {
-            addCategory(categoryData);
+            await addCategory(categoryData);
         }
         handleCloseModal();
     };
     
-    const handleDeleteCategory = (category: Category) => {
+    const handleDeleteCategory = async (category: Category) => {
         if (window.confirm(`Bạn có chắc chắn muốn xóa danh mục "${category.name}" không?`)) {
             try {
-                deleteCategory(category.id);
+                await deleteCategory(category.id);
             } catch (error: any) {
                 alert(`Không thể xóa: ${error.message}`);
             }
         }
     };
 
-    const handleSaveChanges = () => {
-        commitChanges();
-        setShowSaveSuccess(true);
-        setTimeout(() => setShowSaveSuccess(false), 2000);
-    };
-
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">Quản lý Danh mục</h1>
-                <div className="flex items-center space-x-3">
-                    {showSaveSuccess && <span className="text-green-600 font-semibold">Đã lưu thành công!</span>}
-                    <button 
-                        onClick={handleSaveChanges}
-                        className="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors"
-                    >
-                        Lưu thay đổi
-                    </button>
-                    <button 
-                        onClick={handleOpenAddModal}
-                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        Thêm danh mục mới
-                    </button>
-                </div>
+                <button 
+                    onClick={handleOpenAddModal}
+                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? 'Đang xử lý...' : 'Thêm danh mục mới'}
+                </button>
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -87,8 +72,8 @@ const AdminCategoriesPage: React.FC = () => {
                                         <span className="font-medium text-gray-900">{category.name}</span>
                                     </td>
                                     <td className="p-3 whitespace-nowrap">
-                                        <button onClick={() => handleOpenEditModal(category)} className="text-blue-600 hover:text-blue-800 mr-4 font-medium">Sửa</button>
-                                        <button onClick={() => handleDeleteCategory(category)} className="text-red-600 hover:text-red-800 font-medium">Xóa</button>
+                                        <button onClick={() => handleOpenEditModal(category)} className="text-blue-600 hover:text-blue-800 mr-4 font-medium" disabled={isSubmitting}>Sửa</button>
+                                        <button onClick={() => handleDeleteCategory(category)} className="text-red-600 hover:text-red-800 font-medium" disabled={isSubmitting}>Xóa</button>
                                     </td>
                                 </tr>
                             ))}

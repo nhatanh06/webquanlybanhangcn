@@ -1,30 +1,27 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import StarRating from '../../components/StarRating';
 import ProductCard from '../../components/ProductCard';
-import QuantitySelector from '../../components/QuantitySelector'; // Import component mới
+import QuantitySelector from '../../components/QuantitySelector';
 
-// Component Form đánh giá
 const ReviewForm: React.FC<{ productId: string }> = ({ productId }) => {
-    const { addReview, user } = useAppContext();
+    const { addReview, user, isSubmitting } = useAppContext();
     const [author, setAuthor] = useState(user?.name || '');
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if(!author.trim() || !comment.trim()) {
+        if (!author.trim() || !comment.trim()) {
             setError("Vui lòng nhập tên và nội dung đánh giá.");
             return;
         }
-        addReview(productId, { author, rating, comment });
-        setAuthor(user?.name || '');
-        setRating(5);
-        setComment('');
+        await addReview(productId, { author, rating, comment });
         setSubmitted(true);
     };
 
@@ -57,9 +54,10 @@ const ReviewForm: React.FC<{ productId: string }> = ({ productId }) => {
             </div>
             <button 
                 type="submit" 
-                className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSubmitting}
+                className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
             >
-                Gửi đánh giá
+                {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
             </button>
         </form>
     );
@@ -84,9 +82,14 @@ const ProductDetailPage: React.FC = () => {
 
     const uniqueImages = useMemo(() => {
         if (!product) return [];
-        // Lọc các ảnh rỗng hoặc null và tạo một Set để có các ảnh duy nhất
         return [...new Set(product.images.filter(img => img))];
     }, [product]);
+
+    useEffect(() => {
+        // Reset image when product changes
+        setActiveImage(0);
+    }, [productId]);
+
 
     if (!product) {
         return <div className="text-center py-20">Không tìm thấy sản phẩm.</div>;
