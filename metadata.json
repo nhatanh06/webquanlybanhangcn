@@ -1,0 +1,5 @@
+{
+  "name": "AkStore - Cửa hàng công nghệ",
+  "description": "Giao diện trang web thương mại điện tử AkStore, được xây dựng bằng React, Node.js và MySQL, cung cấp trải nghiệm mua sắm mượt mà cho các sản phẩm công nghệ.",
+  "requestFramePermissions": []
+}
