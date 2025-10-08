@@ -19,12 +19,14 @@ interface AppContextType extends AppState {
   isSubmitting: boolean;
   error: string | null;
   apiError: string | null;
+  successfulOrder: Order | null;
   addToCart: (product: Product, quantity: number, selectedOptions: { [key: string]: string }) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   placeOrder: (customerInfo: { name: string; phone: string; address: string; paymentMethod: 'COD' | 'Bank Transfer' | 'Momo' }) => Promise<Order | null>;
+  clearSuccessfulOrder: () => void;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   registerUser: (userData: Omit<User, 'id' | 'role' | 'addresses'> & { password?: string; address?: string }) => Promise<{ success: boolean; message?: string }>;
@@ -90,6 +92,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [successfulOrder, setSuccessfulOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -139,6 +142,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateQuantity = useCallback((productId: string, quantity: number) => setCart(prev => prev.map(item => item.product.id === productId ? { ...item, quantity: Math.max(1, quantity) } : item)), []);
   const clearCart = useCallback(() => setCart([]), []);
   const getCartTotal = useCallback(() => cart.reduce((total, item) => total + item.product.price * item.quantity, 0), [cart]);
+  const clearSuccessfulOrder = useCallback(() => setSuccessfulOrder(null), []);
 
   const login = async (email: string, password: string) => {
     try {
@@ -169,7 +173,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const placeOrder = async (customerInfo: any) => {
-    if (cart.length === 0) return null;
+    if (cart.length === 0) {
+        setSuccessfulOrder(null);
+        return null;
+    }
     const orderData = {
       ...customerInfo,
       items: cart,
@@ -181,9 +188,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const newOrder = await apiRequest<Order>('/orders', 'POST', orderData);
         setAppState(prev => ({...prev, orders: [newOrder, ...prev.orders]}));
         clearCart();
+        setSuccessfulOrder(newOrder);
         return newOrder;
     } catch (e: any) {
         setError(e.message);
+        setSuccessfulOrder(null);
         return null;
     } finally {
         setIsSubmitting(false);
@@ -251,9 +260,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   return (
     <AppContext.Provider value={{ 
-        ...appState, user, cart, isLoading, isSubmitting, error, apiError,
+        ...appState, user, cart, isLoading, isSubmitting, error, apiError, successfulOrder,
         addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal,
-        login, logout, registerUser, placeOrder,
+        login, logout, registerUser, placeOrder, clearSuccessfulOrder,
         addProduct, updateProduct, deleteProduct, addReview,
         updateOrderStatus, cancelOrder,
         addCategory, updateCategory, deleteCategory,

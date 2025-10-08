@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 
 const CheckoutPage: React.FC = () => {
-    const { cart, getCartTotal, placeOrder, user } = useAppContext();
+    const { cart, getCartTotal, placeOrder, user, isSubmitting } = useAppContext();
     const navigate = useNavigate();
     const [customerInfo, setCustomerInfo] = useState({
         name: user?.name || '',
@@ -23,14 +23,13 @@ const CheckoutPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const order = await placeOrder(customerInfo);
-        if (order) {
-            navigate('/order-confirmation', { state: { orderId: order.id } });
-        } else {
+        if (!order) {
             alert('Giỏ hàng trống hoặc có lỗi xảy ra, vui lòng thử lại.');
         }
+        // Việc điều hướng sẽ được xử lý bởi modal trong App.tsx
     };
 
-    if (cart.length === 0) {
+    if (cart.length === 0 && !isSubmitting) {
         navigate('/cart', { replace: true });
         return null;
     }
@@ -130,8 +129,12 @@ const CheckoutPage: React.FC = () => {
                                 <span>{total.toLocaleString('vi-VN')}₫</span>
                             </div>
                         </div>
-                        <button type="submit" className="w-full mt-6 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow hover:shadow-lg transform hover:-translate-y-0.5">
-                            Xác nhận đặt hàng
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className="w-full mt-6 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow hover:shadow-lg transform hover:-translate-y-0.5 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                            {isSubmitting ? 'Đang xử lý...' : 'Xác nhận đặt hàng'}
                         </button>
                     </div>
                 </div>

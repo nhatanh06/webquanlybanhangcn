@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 
 // Import components
 import Header from './components/Header';
 import Footer from './components/Footer';
 import AdminLayout from './components/AdminLayout';
+import OrderSuccessModal from './components/OrderSuccessModal';
 
 // Import customer pages
 import HomePage from './pages/customer/HomePage';
@@ -15,7 +16,6 @@ import CartPage from './pages/customer/CartPage';
 import CheckoutPage from './pages/customer/CheckoutPage';
 import LoginPage from './pages/customer/LoginPage';
 import AccountPage from './pages/customer/AccountPage';
-import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 import RegisterPage from './pages/customer/RegisterPage';
 
 // Import admin pages
@@ -34,13 +34,24 @@ const ScrollToTop = () => {
   return null;
 };
 
-const CustomerLayout: React.FC = () => (
-    <div className="flex flex-col min-h-screen">
-        <Header />
-        <main className="flex-grow"><Outlet /></main>
-        <Footer />
-    </div>
-);
+const CustomerLayout: React.FC = () => {
+    const { successfulOrder, clearSuccessfulOrder } = useAppContext();
+    const navigate = useNavigate();
+
+    const handleCloseModal = () => {
+        clearSuccessfulOrder();
+        navigate('/');
+    };
+
+    return (
+        <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-grow"><Outlet /></main>
+            <Footer />
+            {successfulOrder && <OrderSuccessModal order={successfulOrder} onClose={handleCloseModal} />}
+        </div>
+    );
+};
 
 const ProtectedRoutes: React.FC = () => {
     const { user } = useAppContext();
@@ -70,7 +81,6 @@ const AppRoutes: React.FC = () => (
                 <Route element={<ProtectedRoutes />}>
                     <Route path="/account" element={<AccountPage />} />
                     <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
                 </Route>
             </Route>
             <Route element={<AdminRouteLayout />}>

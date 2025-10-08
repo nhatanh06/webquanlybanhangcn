@@ -48,6 +48,7 @@ const DashboardPage: React.FC = () => {
                         <thead>
                             <tr className="bg-gray-50 border-b">
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã đơn</th>
+                                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sản phẩm</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khách hàng</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng tiền</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
@@ -57,6 +58,7 @@ const DashboardPage: React.FC = () => {
                             {orders.slice(0, 5).map(order => (
                                 <tr key={order.id} className="border-b hover:bg-gray-50 transition-colors">
                                     <td className="p-3 font-medium text-blue-600">#{order.id}</td>
+                                    <td className="p-3 text-gray-700">{order.productSummary || 'N/A'}</td>
                                     <td className="p-3 text-gray-700">{order.customerName}</td>
                                     <td className="p-3 text-gray-700">{order.total.toLocaleString('vi-VN')}₫</td>
                                     <td className="p-3">

@@ -30,7 +30,10 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900">
+            <Link to="/" className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors">
+                &larr; Quay về trang chủ
+            </Link>
+            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
                 Chào mừng trở lại!
             </h2>
             <p className="mt-2 text-gray-600">

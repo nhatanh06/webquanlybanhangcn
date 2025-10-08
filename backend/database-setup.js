@@ -1,19 +1,8 @@
+const data = require('./app-data');
 
-const data = require('./data');
-
-const setupDatabase = (db) => {
+const setupAppDatabase = (db) => {
     const createTables = () => {
         db.exec(`
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
-                phone TEXT,
-                password TEXT NOT NULL,
-                addresses TEXT,
-                role TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS categories (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -66,17 +55,11 @@ const setupDatabase = (db) => {
                 product TEXT,
                 FOREIGN KEY (order_id) REFERENCES orders (id)
             );
-
-            CREATE TABLE IF NOT EXISTS store_settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                logo TEXT,
-                slides TEXT
-            );
         `, (err) => {
             if (err) {
-                console.error("Lỗi khi tạo bảng:", err.message);
+                console.error("Lỗi khi tạo bảng ứng dụng:", err.message);
             } else {
-                console.log("Các bảng đã được tạo thành công.");
+                console.log("Các bảng ứng dụng đã được tạo thành công.");
                 insertInitialData();
             }
         });
@@ -84,13 +67,6 @@ const setupDatabase = (db) => {
 
     const insertInitialData = () => {
         db.serialize(() => {
-            // Insert Users
-            const userStmt = db.prepare("INSERT INTO users (id, name, email, phone, password, addresses, role) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            data.INITIAL_USERS.forEach(user => {
-                userStmt.run(null, user.name, user.email, user.phone, user.password, JSON.stringify(user.addresses), user.role);
-            });
-            userStmt.finalize();
-
             // Insert Categories
             const categoryStmt = db.prepare("INSERT INTO categories (id, name, image) VALUES (?, ?, ?)");
             data.INITIAL_CATEGORIES.forEach(cat => categoryStmt.run(cat.id, cat.name, cat.image));
@@ -113,15 +89,11 @@ const setupDatabase = (db) => {
             });
             productStmt.finalize();
             
-            // Insert Store Settings
-            const settings = data.INITIAL_STORE_SETTINGS;
-            db.run("INSERT INTO store_settings (id, logo, slides) VALUES (1, ?, ?)", [settings.logo, JSON.stringify(settings.slides)]);
-            
-            console.log("Dữ liệu mẫu đã được chèn thành công.");
+            console.log("Dữ liệu mẫu cho ứng dụng đã được chèn thành công.");
         });
     };
 
     createTables();
 };
 
-module.exports = { setupDatabase };
+module.exports = { setupAppDatabase };

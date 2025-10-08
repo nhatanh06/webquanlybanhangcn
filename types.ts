@@ -79,6 +79,7 @@ export interface Order {
   status: OrderStatus;
   orderDate: string;
   paymentMethod: 'COD' | 'Bank Transfer' | 'Momo';
+  productSummary?: string; // Tóm tắt sản phẩm trong đơn hàng
 }
 
 // Định nghĩa cấu trúc cho người dùng

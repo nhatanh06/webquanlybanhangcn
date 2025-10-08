@@ -60,7 +60,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
           description: product.description,
           shortDescription: product.shortDescription,
           specs: Object.entries(product.specs).map(([key, value]) => ({ key, value })),
-          options: Object.entries(product.options).map(([key, value]) => ({ key, values: value.join(', ') })),
+          // FIX: Cast `value` to `string[]` to resolve TypeScript error.
+          options: Object.entries(product.options).map(([key, value]) => ({ key, values: (value as string[]).join(', ') })),
           isFeatured: product.isFeatured || false,
           isBestSeller: product.isBestSeller || false,
         });

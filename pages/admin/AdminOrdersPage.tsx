@@ -1,14 +1,39 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { OrderStatus } from '../../types';
+import { Order, OrderStatus } from '../../types';
+import InvoiceTemplate from '../../components/admin/InvoiceTemplate';
+import { generateInvoicePdf } from '../../utils/pdfGenerator';
+
+// Khai báo biến toàn cục từ CDN
+declare var jspdf: any;
+declare var html2canvas: any;
 
 const AdminOrdersPage: React.FC = () => {
-    const { orders, updateOrderStatus, isSubmitting } = useAppContext();
-    
+    const { orders, updateOrderStatus, isSubmitting, storeSettings } = useAppContext();
+    const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+    const invoiceRef = useRef<HTMLDivElement>(null);
+
     const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
         updateOrderStatus(orderId, newStatus);
     };
-    
+
+    useEffect(() => {
+        if (orderToPrint && invoiceRef.current) {
+            const generatePdf = async () => {
+                try {
+                    await generateInvoicePdf(invoiceRef.current as HTMLElement, orderToPrint.id);
+                } catch (error) {
+                    console.error("Lỗi khi tạo PDF:", error);
+                    alert("Không thể tạo hóa đơn PDF. Vui lòng thử lại.");
+                } finally {
+                    setOrderToPrint(null); // Reset sau khi tạo xong
+                }
+            };
+            // Thêm một độ trễ nhỏ để đảm bảo component đã render hoàn chỉnh
+            setTimeout(generatePdf, 100); 
+        }
+    }, [orderToPrint]);
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -21,17 +46,20 @@ const AdminOrdersPage: React.FC = () => {
                         <thead>
                             <tr className="bg-gray-50 border-b">
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã đơn</th>
+                                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sản phẩm</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khách hàng</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày đặt</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng tiền</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Hành động</th>
+                                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Cập nhật Trạng thái</th>
+                                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {orders.map((order, index) => (
                                 <tr key={order.id} className={`${index === 0 ? 'bg-blue-50' : ''} hover:bg-gray-50 transition-colors`}>
                                     <td className="p-3 font-medium text-blue-600 whitespace-nowrap">#{order.id}</td>
+                                    <td className="p-3 text-gray-700">{order.productSummary || 'N/A'}</td>
                                     <td className="p-3 text-gray-700">{order.customerName}</td>
                                     <td className="p-3 text-gray-700 whitespace-nowrap">{new Date(order.orderDate).toLocaleDateString('vi-VN')}</td>
                                     <td className="p-3 text-gray-700 whitespace-nowrap">{order.total.toLocaleString('vi-VN')}₫</td>
@@ -56,12 +84,28 @@ const AdminOrdersPage: React.FC = () => {
                                             ))}
                                         </select>
                                     </td>
+                                    <td className="p-3">
+                                        <button 
+                                            onClick={() => setOrderToPrint(order)}
+                                            className="bg-gray-200 text-gray-800 font-semibold py-1 px-3 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                            disabled={isSubmitting}
+                                        >
+                                            In Hóa Đơn
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* Component hóa đơn được render ẩn để chụp ảnh */}
+            {orderToPrint && (
+                <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '800px' }}>
+                    <InvoiceTemplate ref={invoiceRef} order={orderToPrint} storeSettings={storeSettings} />
+                </div>
+            )}
         </div>
     );
 };
