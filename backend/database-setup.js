@@ -20,39 +20,39 @@ const setupAppDatabase = (db) => {
                 name TEXT NOT NULL,
                 brand TEXT NOT NULL,
                 category TEXT NOT NULL,
-                price REAL NOT NULL,
-                originalPrice REAL,
+                price INTEGER NOT NULL,
+                originalPrice INTEGER,
                 images TEXT,
                 description TEXT,
                 shortDescription TEXT,
                 specs TEXT,
                 options TEXT,
-                rating REAL,
-                reviewCount INTEGER,
+                rating REAL NOT NULL DEFAULT 0,
+                reviewCount INTEGER NOT NULL DEFAULT 0,
                 reviews TEXT,
-                isFeatured INTEGER,
-                isBestSeller INTEGER
+                isFeatured INTEGER NOT NULL DEFAULT 0 CHECK(isFeatured IN (0, 1)),
+                isBestSeller INTEGER NOT NULL DEFAULT 0 CHECK(isBestSeller IN (0, 1))
             );
 
             CREATE TABLE IF NOT EXISTS orders (
                 id TEXT PRIMARY KEY,
                 customerName TEXT NOT NULL,
-                phone TEXT,
-                address TEXT,
-                total REAL,
-                status TEXT,
-                orderDate TEXT,
-                paymentMethod TEXT,
+                phone TEXT NOT NULL,
+                address TEXT NOT NULL,
+                total INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'Chờ xác nhận' CHECK(status IN ('Chờ xác nhận', 'Đang xử lý', 'Đang giao hàng', 'Hoàn thành', 'Đã hủy')),
+                orderDate TEXT NOT NULL,
+                paymentMethod TEXT NOT NULL CHECK(paymentMethod IN ('COD', 'Bank Transfer', 'Momo')),
                 userId TEXT
             );
 
             CREATE TABLE IF NOT EXISTS order_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_id TEXT,
-                product_id TEXT,
-                quantity INTEGER,
-                price REAL,
-                product TEXT,
+                order_id TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                quantity INTEGER NOT NULL CHECK(quantity > 0),
+                price INTEGER NOT NULL CHECK(price >= 0),
+                product TEXT NOT NULL,
                 FOREIGN KEY (order_id) REFERENCES orders (id)
             );
         `, (err) => {

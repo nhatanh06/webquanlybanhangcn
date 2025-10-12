@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { OrderStatus, CartItem } from '../../types';
+import { OrderStatus, OrderItem } from '../../types';
 
 // Icons for Stat Cards
 const Icons = {
@@ -15,7 +15,7 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
         <div className="bg-gray-100 p-3 rounded-full">{icon}</div>
         <div>
             <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
-            <p className="text-3xl font-bold text-gray-800">{value}</p>
+            <p className="text-2xl md:text-3xl font-bold text-gray-800">{value}</p>
         </div>
     </div>
 );
@@ -24,30 +24,23 @@ const AdminReportsPage: React.FC = () => {
     const { orders, users, products } = useAppContext();
     const [copySuccess, setCopySuccess] = useState('');
 
-    // --- Tính toán dữ liệu báo cáo ---
     const reportData = useMemo(() => {
-        // 1. Doanh thu (chỉ từ đơn đã hoàn thành)
-        const totalRevenue = orders
-            .filter(order => order.status === OrderStatus.Completed)
-            .reduce((sum, order) => sum + order.total, 0);
-
-        // 2. Thống kê đơn hàng theo trạng thái
+        const totalRevenue = orders.filter(o => o.status === OrderStatus.Completed).reduce((s, o) => s + o.total, 0);
         const orderStatusCounts = orders.reduce((acc, order) => {
             acc[order.status] = (acc[order.status] || 0) + 1;
             return acc;
         }, {} as { [key in OrderStatus]?: number });
-
-        // 3. Tổng số khách hàng
         const totalCustomers = users.filter(user => user.role === 'customer').length;
         
-        // 4. Sản phẩm bán chạy
         const productSales = new Map<string, { name: string, quantity: number, revenue: number }>();
         orders.forEach(order => {
-            order.items.forEach((item: CartItem) => {
-                const existing = productSales.get(item.product.id) || { name: item.product.name, quantity: 0, revenue: 0 };
-                existing.quantity += item.quantity;
-                existing.revenue += item.quantity * item.product.price;
-                productSales.set(item.product.id, existing);
+            // FIX: Access the nested CartItem object (item.product) to correctly aggregate sales data.
+            order.items.forEach((item: OrderItem) => {
+                const cartItem = item.product;
+                const existing = productSales.get(cartItem.product.id) || { name: cartItem.product.name, quantity: 0, revenue: 0 };
+                existing.quantity += cartItem.quantity;
+                existing.revenue += cartItem.quantity * cartItem.product.price;
+                productSales.set(cartItem.product.id, existing);
             });
         });
         const bestSellingProducts = Array.from(productSales.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
@@ -55,37 +48,25 @@ const AdminReportsPage: React.FC = () => {
         return { totalRevenue, orderStatusCounts, totalCustomers, bestSellingProducts };
     }, [orders, users]);
 
-    // --- Hàm xuất dữ liệu ---
     const copyToClipboard = (data: any[], headers: string[]) => {
-        const csvContent = [
-            headers.join('\t'), // Dùng tab để Excel nhận dạng cột tốt hơn
-            ...data.map(row => Object.values(row).join('\t'))
-        ].join('\n');
-
+        const csvContent = [headers.join('\t'), ...data.map(row => Object.values(row).join('\t'))].join('\n');
         navigator.clipboard.writeText(csvContent).then(() => {
-            setCopySuccess('Đã sao chép vào clipboard!');
+            setCopySuccess('Đã sao chép!');
             setTimeout(() => setCopySuccess(''), 2000);
-        }).catch(err => {
-            console.error('Không thể sao chép: ', err);
-            setCopySuccess('Sao chép thất bại!');
-            setTimeout(() => setCopySuccess(''), 2000);
-        });
+        }).catch(() => { setCopySuccess('Lỗi!'); setTimeout(() => setCopySuccess(''), 2000); });
     };
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6 text-gray-900">Báo cáo & Thống kê</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold mb-6 text-gray-900">Báo cáo & Thống kê</h1>
 
-            {/* Tổng quan */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <StatCard title="Tổng doanh thu (Hoàn thành)" value={`${reportData.totalRevenue.toLocaleString('vi-VN')}₫`} icon={<Icons.Revenue />} />
-                <StatCard title="Tổng số đơn hàng" value={orders.length} icon={<Icons.Orders />} />
-                <StatCard title="Tổng số khách hàng" value={reportData.totalCustomers} icon={<Icons.Customers />} />
+                <StatCard title="Doanh thu (Hoàn thành)" value={`${reportData.totalRevenue.toLocaleString('vi-VN')}₫`} icon={<Icons.Revenue />} />
+                <StatCard title="Tổng đơn hàng" value={orders.length} icon={<Icons.Orders />} />
+                <StatCard title="Tổng khách hàng" value={reportData.totalCustomers} icon={<Icons.Customers />} />
             </div>
 
-            {/* Chi tiết */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Thống kê đơn hàng */}
                 <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
                     <h2 className="text-xl font-bold mb-4 text-blue-700">Trạng thái đơn hàng</h2>
                     <div className="space-y-3">
@@ -98,27 +79,20 @@ const AdminReportsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Sản phẩm bán chạy */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                         <h2 className="text-xl font-bold text-blue-700">Top sản phẩm bán chạy</h2>
-                        <button 
-                            onClick={() => copyToClipboard(
-                                reportData.bestSellingProducts, 
-                                ['Sản phẩm', 'Số lượng bán', 'Doanh thu (VND)']
-                            )}
-                            className="bg-green-100 text-green-800 font-semibold py-2 px-3 rounded-lg hover:bg-green-200 transition-colors text-sm"
-                        >
+                        <button onClick={() => copyToClipboard(reportData.bestSellingProducts, ['Sản phẩm', 'Số lượng', 'Doanh thu (VND)'])} className="bg-green-100 text-green-800 font-semibold py-2 px-3 rounded-lg hover:bg-green-200 transition-colors text-sm w-full sm:w-auto">
                             {copySuccess || 'Sao chép dữ liệu (CSV)'}
                         </button>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left min-w-[500px]">
                             <thead>
                                 <tr className="bg-gray-50 border-b">
                                     <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sản phẩm</th>
-                                    <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số lượng bán</th>
-                                    <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doanh thu</th>
+                                    <th className="p-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số lượng bán</th>
+                                    <th className="p-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Doanh thu</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -126,7 +100,7 @@ const AdminReportsPage: React.FC = () => {
                                     <tr key={product.name} className="hover:bg-gray-50">
                                         <td className="p-3 font-medium text-gray-900">{product.name}</td>
                                         <td className="p-3 text-center text-gray-700">{product.quantity}</td>
-                                        <td className="p-3 text-gray-700 whitespace-nowrap">{product.revenue.toLocaleString('vi-VN')}₫</td>
+                                        <td className="p-3 text-right text-gray-700 whitespace-nowrap">{product.revenue.toLocaleString('vi-VN')}₫</td>
                                     </tr>
                                 ))}
                             </tbody>

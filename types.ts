@@ -59,6 +59,17 @@ export interface CartItem {
   };
 }
 
+// FIX: Define a new interface for the actual structure of an order item from the backend
+// to accurately represent the nested CartItem object.
+export interface OrderItem {
+    id: number;
+    order_id: string;
+    product_id: string;
+    quantity: number;
+    price: number;
+    product: CartItem;
+}
+
 // Định nghĩa các trạng thái của đơn hàng
 export enum OrderStatus {
   Pending = 'Chờ xác nhận',
@@ -74,7 +85,8 @@ export interface Order {
   customerName: string;
   phone: string;
   address: string;
-  items: CartItem[];
+  // FIX: Change the type of items to match the new OrderItem interface.
+  items: OrderItem[];
   total: number;
   status: OrderStatus;
   orderDate: string;

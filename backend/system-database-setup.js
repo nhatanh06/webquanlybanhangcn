@@ -7,10 +7,10 @@ const setupSystemDatabase = (db) => {
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
-                phone TEXT,
+                phone TEXT NOT NULL,
                 password TEXT NOT NULL,
-                addresses TEXT,
-                role TEXT NOT NULL
+                addresses TEXT NOT NULL DEFAULT '[]',
+                role TEXT NOT NULL CHECK(role IN ('admin', 'customer'))
             );
 
             CREATE TABLE IF NOT EXISTS store_settings (

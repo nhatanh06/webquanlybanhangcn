@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Order, StoreSettings, CartItem } from '../../types';
+import { Order, StoreSettings, OrderItem } from '../../types';
 
 interface InvoiceTemplateProps {
   order: Order;
@@ -57,21 +57,23 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                         </tr>
                     </thead>
                     <tbody>
-                        {order.items.map((item: CartItem) => (
-                            <tr key={item.product.id} className="border-b">
+                        {/* FIX: Update logic to handle the nested OrderItem structure */}
+                        {order.items.map((item: OrderItem) => {
+                            const cartItem = item.product;
+                            return (
+                            <tr key={cartItem.product.id} className="border-b">
                                 <td className="p-3">
-                                    {/* FIX: According to CartItem type, product name is at item.product.name */}
-                                    <p className="font-medium">{item.product.name}</p>
+                                    <p className="font-medium">{cartItem.product.name}</p>
                                     <p className="text-xs text-gray-500">
-                                        {/* FIX: According to CartItem type, selectedOptions is at item.selectedOptions */}
-                                        {Object.entries(item.selectedOptions).map(([key, value]) => `${key}: ${value}`).join(', ')}
+                                        {Object.entries(cartItem.selectedOptions).map(([key, value]) => `${key}: ${value}`).join(', ')}
                                     </p>
                                 </td>
-                                <td className="p-3 text-center">{item.quantity}</td>
-                                <td className="p-3 text-right">{item.product.price.toLocaleString('vi-VN')}₫</td>
-                                <td className="p-3 text-right font-semibold">{(item.product.price * item.quantity).toLocaleString('vi-VN')}₫</td>
+                                <td className="p-3 text-center">{cartItem.quantity}</td>
+                                <td className="p-3 text-right">{cartItem.product.price.toLocaleString('vi-VN')}₫</td>
+                                <td className="p-3 text-right font-semibold">{(cartItem.product.price * cartItem.quantity).toLocaleString('vi-VN')}₫</td>
                             </tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

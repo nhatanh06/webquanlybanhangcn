@@ -173,7 +173,37 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// NEW: Get user profile by ID
+app.get('/api/users/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await dbGet(systemDb, 'SELECT id, name, email, phone, addresses, role FROM users WHERE id = ?', [userId]);
+        if (user) {
+            res.json(parseJsonFields(user, ['addresses']));
+        } else {
+            handleError(res, 404, 'Không tìm thấy người dùng.');
+        }
+    } catch (err) {
+        handleError(res, 500, err.message);
+    }
+});
+
 // == PRODUCTS (App DB) ==
+// NEW: Get single product by ID
+app.get('/api/products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = await dbGet(appDb, 'SELECT * FROM products WHERE id = ?', [id]);
+        if (product) {
+            res.json(parseJsonFields(product, ['images', 'specs', 'options', 'reviews']));
+        } else {
+            handleError(res, 404, 'Không tìm thấy sản phẩm');
+        }
+    } catch (err) {
+        handleError(res, 500, err.message);
+    }
+});
+
 app.post('/api/products', async (req, res) => {
     try {
         const p = req.body;
@@ -336,6 +366,45 @@ app.delete('/api/brands/:id', async (req, res) => {
 });
 
 // == ORDERS (App DB) ==
+// NEW: Get order history for a specific user
+app.get('/api/users/:userId/orders', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const userOrders = await dbAll(appDb, 'SELECT * FROM orders WHERE userId = ? ORDER BY orderDate DESC', [userId]);
+
+        if (userOrders.length === 0) {
+            return res.json([]);
+        }
+
+        const orderIds = userOrders.map(o => o.id);
+        const placeholders = orderIds.map(() => '?').join(',');
+        const allOrderItems = await dbAll(appDb, `SELECT * FROM order_items WHERE order_id IN (${placeholders})`, orderIds);
+        
+        const processedOrders = userOrders.map(order => {
+            const itemsForOrder = allOrderItems.filter(item => item.order_id === order.id);
+            const parsedItems = itemsForOrder.map(item => parseJsonFields(item, ['product']));
+            
+            let productSummary = 'Không có sản phẩm';
+            if (parsedItems.length > 0 && parsedItems[0].product && parsedItems[0].product.product) {
+                 productSummary = parsedItems[0].product.product.name;
+                if (parsedItems.length > 1) {
+                    productSummary += ` và ${parsedItems.length - 1} sản phẩm khác`;
+                }
+            }
+            
+            return {
+                ...order,
+                items: parsedItems,
+                productSummary: productSummary,
+            };
+        });
+
+        res.json(processedOrders);
+    } catch (err) {
+        handleError(res, 500, err.message);
+    }
+});
+
 app.post('/api/orders', async (req, res) => {
     try {
         const { name, phone, address, paymentMethod, items, total, userId } = req.body;

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+import { ICONS } from '../../constants';
+import Logo from '../../components/Logo';
 
 const LoginPage: React.FC = () => {
-  const { login, isSubmitting } = useAppContext();
+  const { login, isSubmitting, storeSettings } = useAppContext();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,16 +27,24 @@ const LoginPage: React.FC = () => {
       setError('Email hoặc mật khẩu không đúng!');
     }
   };
+  
+  const handleSocialLogin = (provider: string) => {
+    alert(`Chức năng đăng nhập bằng ${provider} đang được phát triển!`);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
          <div className="text-center">
-            <Link to="/" className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                &larr; Quay về trang chủ
+            <Link to="/" className="inline-block mb-6">
+              {storeSettings.logo ? (
+                <img src={storeSettings.logo} alt="AkStore Logo" className="h-12 w-auto mx-auto" />
+              ) : (
+                <Logo className="h-12" textClassName="text-gray-800" />
+              )}
             </Link>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-                Chào mừng trở lại!
+            <h2 className="text-3xl font-extrabold text-gray-900">
+              Chào mừng trở lại!
             </h2>
             <p className="mt-2 text-gray-600">
                 Đăng nhập để tiếp tục mua sắm
@@ -42,15 +52,6 @@ const LoginPage: React.FC = () => {
         </div>
 
         <div className="bg-white p-8 rounded-2xl shadow-xl">
-             <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 mb-6 rounded-r-lg" role="alert">
-              <p className="font-bold text-sm">Sử dụng tài khoản demo:</p>
-              <ul className="list-disc list-inside text-sm mt-1">
-                <li><b>Admin:</b> admin@example.com</li>
-                <li><b>Khách hàng:</b> user@example.com</li>
-                <li><b>Mật khẩu:</b> 1</li>
-              </ul>
-            </div>
-
             <form className="space-y-6" onSubmit={handleLogin}>
               {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
               
@@ -110,7 +111,26 @@ const LoginPage: React.FC = () => {
                 </button>
               </div>
             </form>
-             <p className="mt-6 text-center text-sm text-gray-600">
+            
+            <div className="relative flex py-5 items-center">
+                <div className="flex-grow border-t border-gray-200"></div>
+                <span className="flex-shrink mx-4 text-sm text-gray-400">Hoặc đăng nhập với</span>
+                <div className="flex-grow border-t border-gray-200"></div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onClick={() => handleSocialLogin('Google')} className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                    <span className="mr-2">{ICONS.google}</span>
+                    Đăng nhập với Google
+                </button>
+                 <button onClick={() => handleSocialLogin('Facebook')} className="w-full flex items-center justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm bg-[#1877F2] text-sm font-medium text-white hover:bg-[#166eeb] transition-colors">
+                    <span className="mr-2">{ICONS.facebook}</span>
+                    Đăng nhập với Facebook
+                </button>
+            </div>
+
+
+             <p className="mt-8 text-center text-sm text-gray-600">
                 Chưa có tài khoản?{' '}
                 <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
                     Đăng ký ngay

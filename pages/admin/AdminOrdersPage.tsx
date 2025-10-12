@@ -29,7 +29,6 @@ const AdminOrdersPage: React.FC = () => {
                     setOrderToPrint(null); // Reset sau khi tạo xong
                 }
             };
-            // Thêm một độ trễ nhỏ để đảm bảo component đã render hoàn chỉnh
             setTimeout(generatePdf, 100); 
         }
     }, [orderToPrint]);
@@ -37,12 +36,12 @@ const AdminOrdersPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">Quản lý đơn hàng</h1>
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Quản lý đơn hàng</h1>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left table-auto">
+                    <table className="w-full text-left table-auto min-w-[1000px]">
                         <thead>
                             <tr className="bg-gray-50 border-b">
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã đơn</th>

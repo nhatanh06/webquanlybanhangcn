@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Slide } from '../../types';
 import SlideFormModal from '../../components/admin/SlideFormModal';
+import Logo from '../../components/Logo';
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -78,7 +79,9 @@ const AdminAppearancePage: React.FC = () => {
                         {storeSettings.logo ? (
                             <img src={storeSettings.logo} alt="Logo" className="h-16 w-auto bg-gray-100 p-2 rounded" />
                         ) : (
-                             <div className="h-16 flex items-center justify-center text-gray-500">(Hiển thị tên cửa hàng)</div>
+                             <div className="p-2 bg-gray-100 rounded inline-block">
+                                <Logo className="h-12" textClassName="text-gray-800" />
+                            </div>
                         )}
                     </div>
                 </div>

@@ -41,7 +41,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     <div className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden group transform hover:-translate-y-2 transition-all duration-300 ease-in-out flex flex-col">
       <Link to={`/product/${product.id}`} className="block flex flex-col flex-grow">
         <div className="relative">
-          <img src={product.images[0]} alt={product.name} className="w-full h-56 object-cover" />
+          <div className="h-56 bg-gray-100 flex items-center justify-center">
+            <img src={product.images[0]} alt={product.name} className="max-w-full max-h-full object-contain" />
+          </div>
           {product.originalPrice && (
             <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded">
               - {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%

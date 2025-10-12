@@ -20,9 +20,9 @@ const Footer: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4 text-gray-800">Liên kết nhanh</h3>
             <ul className="space-y-2">
               <li><Link to="/shop" className="text-gray-500 hover:text-blue-600 transition-colors">Cửa hàng</Link></li>
+              <li><Link to="/news" className="text-gray-500 hover:text-blue-600 transition-colors">Tin tức</Link></li>
               <li><Link to="/cart" className="text-gray-500 hover:text-blue-600 transition-colors">Giỏ hàng</Link></li>
               <li><Link to="/account" className="text-gray-500 hover:text-blue-600 transition-colors">Tài khoản</Link></li>
-              <li><Link to="#" className="text-gray-500 hover:text-blue-600 transition-colors">Chính sách bảo mật</Link></li>
             </ul>
           </div>
 

@@ -7,6 +7,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import AdminLayout from './components/AdminLayout';
 import OrderSuccessModal from './components/OrderSuccessModal';
+import WelcomeToast from './components/WelcomeToast'; // Import mới
 
 // Import customer pages
 import HomePage from './pages/customer/HomePage';
@@ -17,6 +18,7 @@ import CheckoutPage from './pages/customer/CheckoutPage';
 import LoginPage from './pages/customer/LoginPage';
 import AccountPage from './pages/customer/AccountPage';
 import RegisterPage from './pages/customer/RegisterPage';
+import NewsPage from './pages/customer/NewsPage';
 
 // Import admin pages
 import DashboardPage from './pages/admin/DashboardPage';
@@ -78,6 +80,7 @@ const AppRoutes: React.FC = () => (
                 <Route path="/shop/:categoryId" element={<ShopPage />} />
                 <Route path="/product/:productId" element={<ProductDetailPage />} />
                 <Route path="/cart" element={<CartPage />} />
+                <Route path="/news" element={<NewsPage />} />
                 <Route element={<ProtectedRoutes />}>
                     <Route path="/account" element={<AccountPage />} />
                     <Route path="/checkout" element={<CheckoutPage />} />
@@ -98,7 +101,7 @@ const AppRoutes: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
-    const { isLoading, apiError } = useAppContext();
+    const { isLoading, apiError, welcomeMessage, clearWelcomeMessage } = useAppContext();
 
     if (isLoading) {
         return (
@@ -131,7 +134,12 @@ const AppContent: React.FC = () => {
         );
     }
     
-    return <AppRoutes />;
+    return (
+      <>
+        {welcomeMessage && <WelcomeToast message={welcomeMessage} onClose={clearWelcomeMessage} />}
+        <AppRoutes />
+      </>
+    );
 };
 
 const App: React.FC = () => (

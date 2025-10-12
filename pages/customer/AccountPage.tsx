@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
-import { Order, OrderStatus } from '../../types';
+import { Order, OrderStatus, OrderItem } from '../../types';
 
 const AccountPage: React.FC = () => {
   const { user, logout, orders, cancelOrder } = useAppContext();
@@ -104,16 +104,17 @@ const AccountPage: React.FC = () => {
 
                                         <h4 className="font-semibold text-gray-800 mb-2 border-t pt-4">Chi tiết sản phẩm:</h4>
                                         <div className="space-y-3">
-                                            {order.items.map(item => (
-                                                <div key={item.product.id} className="flex justify-between items-center text-sm">
+                                            {/* FIX: Update logic to access nested product data via item.product.product */}
+                                            {order.items.map((item: OrderItem) => (
+                                                <div key={item.product_id} className="flex justify-between items-center text-sm">
                                                     <div className="flex items-center">
-                                                        <img src={item.product.images[0]} alt={item.product.name} className="w-12 h-12 object-cover rounded-md mr-4 border" />
+                                                        <img src={item.product.product.images[0]} alt={item.product.product.name} className="w-12 h-12 object-contain bg-gray-100 p-1 rounded-md mr-4 border" />
                                                         <div>
-                                                            <p className="font-medium text-gray-800">{item.product.name}</p>
-                                                            <p className="text-gray-500">Số lượng: {item.quantity}</p>
+                                                            <p className="font-medium text-gray-800">{item.product.product.name}</p>
+                                                            <p className="text-gray-500">Số lượng: {item.product.quantity}</p>
                                                         </div>
                                                     </div>
-                                                    <span className="font-medium">{(item.product.price * item.quantity).toLocaleString('vi-VN')}₫</span>
+                                                    <span className="font-medium">{(item.product.product.price * item.product.quantity).toLocaleString('vi-VN')}₫</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -160,11 +161,11 @@ const AccountPage: React.FC = () => {
       <div className="flex flex-col md:flex-row gap-8">
         {/* Sidebar */}
         <aside className="w-full md:w-1/4">
-          <nav className="flex flex-col space-y-2">
-            <button onClick={() => setActiveTab('profile')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'profile' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Thông tin</button>
-            <button onClick={() => setActiveTab('orders')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'orders' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Đơn hàng</button>
-            <button onClick={() => setActiveTab('addresses')} className={`text-left p-3 rounded-md transition-colors font-medium ${activeTab === 'addresses' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Địa chỉ</button>
-            <button onClick={handleLogout} className="text-left p-3 rounded-md hover:bg-red-50 text-red-600 font-medium transition-colors">Đăng xuất</button>
+          <nav className="flex flex-row flex-wrap gap-2 md:flex-col md:space-y-2 md:gap-0">
+            <button onClick={() => setActiveTab('profile')} className={`text-center md:text-left p-3 rounded-md transition-colors font-medium flex-grow ${activeTab === 'profile' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Thông tin</button>
+            <button onClick={() => setActiveTab('orders')} className={`text-center md:text-left p-3 rounded-md transition-colors font-medium flex-grow ${activeTab === 'orders' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Đơn hàng</button>
+            <button onClick={() => setActiveTab('addresses')} className={`text-center md:text-left p-3 rounded-md transition-colors font-medium flex-grow ${activeTab === 'addresses' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-800 hover:bg-blue-100 hover:text-blue-700'}`}>Địa chỉ</button>
+            <button onClick={handleLogout} className="text-center md:text-left p-3 rounded-md hover:bg-red-50 text-red-600 font-medium transition-colors w-full">Đăng xuất</button>
           </nav>
         </aside>
         

@@ -25,7 +25,7 @@ const HomePage: React.FC = () => {
     return (
         <div>
             {/* Hero Section - Carousel */}
-            <section className="relative h-[600px] w-full overflow-hidden">
+            <section className="relative h-[400px] md:h-[600px] w-full overflow-hidden">
                 {slides.map((slide, index) => (
                     <div
                         key={slide.id}
@@ -34,8 +34,8 @@ const HomePage: React.FC = () => {
                         <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
                             <div className="text-center text-white p-4">
-                                <h1 className="text-4xl md:text-6xl font-bold mb-4 animate-fade-in-down">{slide.title}</h1>
-                                <p className="text-lg md:text-2xl mb-8 animate-fade-in-up">{slide.subtitle}</p>
+                                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-4 animate-fade-in-down">{slide.title}</h1>
+                                <p className="text-md sm:text-lg md:text-2xl mb-8 animate-fade-in-up">{slide.subtitle}</p>
                                 <Link to={slide.link} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-105 duration-300 shadow-lg">
                                     Mua ngay
                                 </Link>

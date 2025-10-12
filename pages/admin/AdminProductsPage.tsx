@@ -40,20 +40,20 @@ const AdminProductsPage: React.FC = () => {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">Quản lý sản phẩm</h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Quản lý sản phẩm</h1>
                 <button 
                     onClick={handleOpenAddModal}
-                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? 'Đang xử lý...' : 'Thêm sản phẩm mới'}
                 </button>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left table-auto">
+                    <table className="w-full text-left table-auto min-w-[800px]">
                         <thead>
                             <tr className="bg-gray-50 border-b">
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên sản phẩm</th>
@@ -67,7 +67,7 @@ const AdminProductsPage: React.FC = () => {
                             {products.map(product => (
                                 <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="p-3 flex items-center">
-                                        <img src={Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : ''} alt={product.name} className="w-12 h-12 object-cover rounded-md mr-4"/>
+                                        <img src={Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : ''} alt={product.name} className="w-12 h-12 object-contain bg-gray-100 p-1 rounded-md mr-4"/>
                                         <span className="font-medium text-gray-900">{product.name}</span>
                                     </td>
                                     <td className="p-3 text-gray-700">{product.category}</td>

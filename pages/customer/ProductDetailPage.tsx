@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
@@ -86,7 +85,6 @@ const ProductDetailPage: React.FC = () => {
     }, [product]);
 
     useEffect(() => {
-        // Reset image when product changes
         setActiveImage(0);
     }, [productId]);
 
@@ -117,24 +115,24 @@ const ProductDetailPage: React.FC = () => {
                 <span className="text-gray-800">{product.name}</span>
             </nav>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
                 <div>
-                    <div className="mb-4">
-                        <img src={uniqueImages[activeImage]} alt={product.name} className="w-full rounded-lg shadow-lg"/>
+                    <div className="mb-4 bg-gray-100 rounded-lg shadow-lg flex items-center justify-center">
+                        <img src={uniqueImages[activeImage]} alt={product.name} className="w-full max-h-[500px] object-contain"/>
                     </div>
                     {uniqueImages.length > 1 && (
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-2 overflow-x-auto pb-2">
                             {uniqueImages.map((img, index) => (
                                  <img key={index} src={img} alt={`${product.name} thumbnail ${index+1}`}
                                     onClick={() => setActiveImage(index)}
-                                    className={`w-24 h-24 object-cover rounded-md cursor-pointer border-2 ${index === activeImage ? 'border-blue-500' : 'border-transparent'}`} />
+                                    className={`w-20 h-20 md:w-24 md:h-24 object-contain bg-gray-100 p-1 rounded-md cursor-pointer border-2 flex-shrink-0 ${index === activeImage ? 'border-blue-500' : 'border-transparent'}`} />
                             ))}
                         </div>
                     )}
                 </div>
 
                 <div>
-                    <h1 className="text-4xl font-bold text-gray-800 mb-2">{product.name}</h1>
+                    <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-2">{product.name}</h1>
                     <div className="flex items-center mb-4">
                         <StarRating rating={product.rating} />
                         <span className="text-gray-600 ml-2">({product.reviewCount} đánh giá)</span>
@@ -148,7 +146,7 @@ const ProductDetailPage: React.FC = () => {
                             <div className="flex flex-wrap gap-2">
                                 {(values as string[]).map(value => (
                                     <button key={value} onClick={() => setSelectedOptions({...selectedOptions, [key]: value})}
-                                        className={`px-4 py-2 border rounded-lg ${selectedOptions[key] === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}>
+                                        className={`px-4 py-2 border rounded-lg text-sm ${selectedOptions[key] === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}>
                                         {value}
                                     </button>
                                 ))}
@@ -156,10 +154,12 @@ const ProductDetailPage: React.FC = () => {
                         </div>
                     ))}
                     
-                    <div className="flex items-center space-x-4 my-6">
+                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 my-6">
                         <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} />
-                        <button onClick={handleAddToCart} className="flex-1 bg-blue-100 text-blue-700 font-semibold py-3 px-6 rounded-lg hover:bg-blue-200 transition-colors">Thêm vào giỏ</button>
-                        <button onClick={handleBuyNow} className="flex-1 bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Mua ngay</button>
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                            <button onClick={handleAddToCart} className="w-full bg-blue-100 text-blue-700 font-semibold py-3 px-4 rounded-lg hover:bg-blue-200 transition-colors text-sm">Thêm vào giỏ</button>
+                            <button onClick={handleBuyNow} className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm">Mua ngay</button>
+                        </div>
                     </div>
                 </div>
             </div>

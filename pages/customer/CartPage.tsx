@@ -26,24 +26,24 @@ const CartPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Cart Items */}
                 <div className="lg:col-span-2">
-                    <div className="bg-white shadow rounded-lg">
+                    <div className="bg-white shadow rounded-lg divide-y divide-gray-200">
                         {cart.map(item => (
-                            <div key={item.product.id} className="flex items-center p-4 border-b last:border-b-0">
-                                <img src={item.product.images[0]} alt={item.product.name} className="w-24 h-24 object-cover rounded-md" />
-                                <div className="flex-grow ml-4">
+                            <div key={item.product.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                                <img src={item.product.images[0]} alt={item.product.name} className="w-24 h-24 object-contain bg-gray-100 p-1 rounded-md flex-shrink-0" />
+                                <div className="flex-grow">
                                     <h3 className="font-semibold text-lg text-gray-800">{item.product.name}</h3>
                                     <p className="text-gray-500 text-sm">
                                         {Object.entries(item.selectedOptions).map(([key, value]) => `${key}: ${value}`).join(', ')}
                                     </p>
-                                    <p className="text-blue-600 font-bold mt-1">{(item.product.price).toLocaleString('vi-VN')}₫</p>
+                                    <p className="text-blue-600 font-bold mt-1 sm:hidden">{(item.product.price).toLocaleString('vi-VN')}₫</p>
                                 </div>
-                                <div className="flex items-center space-x-3">
+                                <div className="flex items-center justify-between w-full sm:w-auto sm:space-x-4">
                                     <QuantitySelector 
                                         quantity={item.quantity}
                                         onQuantityChange={(newQuantity) => updateQuantity(item.product.id, newQuantity)}
                                     />
-                                    <p className="font-semibold w-28 text-right">{(item.product.price * item.quantity).toLocaleString('vi-VN')}₫</p>
-                                    <button onClick={() => removeFromCart(item.product.id)} className="text-red-500 hover:text-red-700 font-bold text-2xl">
+                                    <p className="font-semibold w-24 text-right hidden sm:block">{(item.product.price * item.quantity).toLocaleString('vi-VN')}₫</p>
+                                    <button onClick={() => removeFromCart(item.product.id)} className="text-red-500 hover:text-red-700 font-bold text-2xl ml-4 sm:ml-0">
                                         &times;
                                     </button>
                                 </div>
