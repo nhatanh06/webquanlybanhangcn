@@ -27,8 +27,9 @@ const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ orde
                     ) : (
                         <h1 className="text-3xl font-bold text-blue-700">AkStore</h1>
                     )}
-                    <p className="text-sm mt-2">123 Đường ABC, Quận 1, TP.HCM</p>
+                    <p className="text-sm mt-2">Ấp Cầu Xéo, Xã Long Thành, Đồng Nai</p>
                     <p className="text-sm">support@akstore.com</p>
+                    <p className="text-sm">Điện thoại: (081) 3121 270</p>
                 </div>
                 <div className="text-right">
                     <h2 className="text-4xl font-bold uppercase text-gray-600">Hóa Đơn</h2>

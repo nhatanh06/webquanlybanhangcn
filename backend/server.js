@@ -1,51 +1,26 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
-const { setupAppDatabase } = require('./database-setup');
-const { setupSystemDatabase } = require('./system-database-setup');
+const mysql = require('mysql2/promise');
+const appData = require('./app-data');
+const systemData = require('./system-data');
 
 const app = express();
 const PORT = 5001;
-const APP_DB_PATH = path.join(__dirname, 'banhangcongnghe.db');
-const SYSTEM_DB_PATH = path.join(__dirname, 'system.db');
 
-// --- DATABASE CONNECTIONS ---
-// Kết nối database cho dữ liệu ứng dụng (sản phẩm, đơn hàng, etc.)
-const appDb = new sqlite3.Database(APP_DB_PATH, (err) => {
-    if (err) console.error("Lỗi kết nối App DB:", err.message);
-    else console.log("Đã kết nối tới CSDL ứng dụng (banhangcongnghe.db).");
-});
+// --- CẤU HÌNH KẾT NỐI MYSQL ---
+const dbConfig = {
+    host: '103.130.217.240',
+    user: 'akstorei_firebasekiet',
+    password: '2006@lhu',
+    database: 'akstorei_demo',
+    port: 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    charset: 'utf8mb4' // Đảm bảo sử dụng UTF-8 để hỗ trợ tiếng Việt
+};
 
-// Kết nối database cho dữ liệu hệ thống (người dùng, cài đặt)
-const systemDb = new sqlite3.Database(SYSTEM_DB_PATH, (err) => {
-    if (err) console.error("Lỗi kết nối System DB:", err.message);
-    else console.log("Đã kết nối tới CSDL hệ thống (system.db).");
-});
-
-// Kiểm tra và thiết lập các database nếu chúng chưa tồn tại
-if (!fs.existsSync(APP_DB_PATH) || fs.statSync(APP_DB_PATH).size === 0) {
-    console.log("File CSDL ứng dụng không tồn tại hoặc trống. Bắt đầu thiết lập...");
-    setupAppDatabase(appDb);
-}
-if (!fs.existsSync(SYSTEM_DB_PATH) || fs.statSync(SYSTEM_DB_PATH).size === 0) {
-    console.log("File CSDL hệ thống không tồn tại hoặc trống. Bắt đầu thiết lập...");
-    setupSystemDatabase(systemDb);
-}
-
-// Helper functions to promisify sqlite3 - now accepts a db instance
-const dbGet = (db, query, params = []) => new Promise((resolve, reject) => {
-    db.get(query, params, (err, row) => err ? reject(err) : resolve(row));
-});
-const dbAll = (db, query, params = []) => new Promise((resolve, reject) => {
-    db.all(query, params, (err, rows) => err ? reject(err) : resolve(rows));
-});
-const dbRun = (db, query, params = []) => new Promise(function(resolve, reject) {
-    db.run(query, params, function(err) {
-        err ? reject(err) : resolve({ id: this.lastID, changes: this.changes });
-    });
-});
+const pool = mysql.createPool(dbConfig);
 
 // Middleware
 app.use(cors());
@@ -67,416 +42,330 @@ const parseJsonFields = (item, fields) => {
                 newItem[field] = JSON.parse(newItem[field]);
             } catch (e) {
                 console.error(`Lỗi parse JSON cho trường ${field} với giá trị "${newItem[field]}":`, e.message);
-                // Giữ lại chuỗi gốc nếu parse lỗi, để tránh crash app
+                newItem[field] = null;
             }
         }
     });
     return newItem;
 };
 
+// --- TỰ ĐỘNG THIẾT LẬP DATABASE ---
+const initializeDatabase = async () => {
+    console.log('Đang kiểm tra và thiết lập cơ sở dữ liệu MySQL...');
+    const connection = await pool.getConnection();
+    try {
+        // Ép buộc bộ mã ký tự cho session kết nối này để đảm bảo tính nhất quán
+        await connection.query("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS categories (
+                id VARCHAR(255) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                image TEXT
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS brands (
+                id VARCHAR(255) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                logo TEXT,
+                category_ids JSON
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS products (
+                id VARCHAR(255) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                brand VARCHAR(255),
+                category VARCHAR(255),
+                price DECIMAL(12, 2) NOT NULL,
+                originalPrice DECIMAL(12, 2),
+                images JSON,
+                description TEXT,
+                shortDescription TEXT,
+                specs JSON,
+                options JSON,
+                rating DOUBLE NOT NULL DEFAULT 0,
+                reviewCount INT NOT NULL DEFAULT 0,
+                reviews JSON,
+                isFeatured BOOLEAN NOT NULL DEFAULT FALSE,
+                isBestSeller BOOLEAN NOT NULL DEFAULT FALSE
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id VARCHAR(255) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                phone VARCHAR(50) NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                addresses JSON,
+                role ENUM('admin', 'customer') NOT NULL
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS orders (
+                id VARCHAR(255) PRIMARY KEY,
+                user_id VARCHAR(255),
+                customerName VARCHAR(255) NOT NULL,
+                phone VARCHAR(50) NOT NULL,
+                address TEXT NOT NULL,
+                total DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+                status ENUM('Chờ xác nhận', 'Đang xử lý', 'Đang giao hàng', 'Hoàn thành', 'Đã hủy') NOT NULL,
+                orderDate DATETIME NOT NULL,
+                paymentMethod ENUM('COD', 'Bank Transfer', 'Momo') NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS order_items (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                order_id VARCHAR(255) NOT NULL,
+                product_id VARCHAR(255) NOT NULL,
+                quantity INT NOT NULL,
+                price DECIMAL(12, 2) NOT NULL,
+                product JSON NOT NULL,
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS store_settings (
+                id INT PRIMARY KEY,
+                logo TEXT,
+                slides JSON
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+
+        console.log('Tất cả các bảng đã được kiểm tra/tạo thành công.');
+
+        const [productRows] = await connection.query('SELECT COUNT(*) as count FROM products');
+        if (productRows[0].count === 0) {
+            console.log('CSDL trống, đang chèn dữ liệu mẫu...');
+            for (const cat of appData.INITIAL_CATEGORIES) await connection.query('INSERT IGNORE INTO categories SET ?', cat);
+            for (const brand of appData.INITIAL_BRANDS) await connection.query('INSERT IGNORE INTO brands (id, name, logo, category_ids) VALUES (?, ?, ?, ?)', [brand.id, brand.name, brand.logo, JSON.stringify(brand.category_ids)]);
+            for (const p of appData.INITIAL_PRODUCTS) {
+                 await connection.query(`INSERT INTO products (id, name, brand, category, price, originalPrice, images, description, shortDescription, specs, options, rating, reviewCount, reviews, isFeatured, isBestSeller) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [p.id, p.name, p.brand, p.category, p.price, p.originalPrice, JSON.stringify(p.images), p.description, p.shortDescription, JSON.stringify(p.specs), JSON.stringify(p.options), p.rating, p.reviewCount, JSON.stringify(p.reviews), p.isFeatured, p.isBestSeller]);
+            }
+            for (const user of systemData.INITIAL_USERS) await connection.query('INSERT IGNORE INTO users (id, name, email, phone, password, addresses, role) VALUES (?, ?, ?, ?, ?, ?, ?)', [user.id, user.name, user.email, user.phone, user.password, JSON.stringify(user.addresses), user.role]);
+            await connection.query('INSERT IGNORE INTO store_settings (id, logo, slides) VALUES (?, ?, ?)', [1, systemData.INITIAL_STORE_SETTINGS.logo, JSON.stringify(systemData.INITIAL_STORE_SETTINGS.slides)]);
+            console.log('Quá trình chèn dữ liệu mẫu đã hoàn tất.');
+        } else {
+             console.log('CSDL đã có dữ liệu, bỏ qua bước chèn dữ liệu mẫu.');
+        }
+    } finally {
+        connection.release();
+    }
+};
 
 // --- API Routes ---
 
-// GET ALL INITIAL DATA - Now queries both databases
 app.get('/api/initial-data', async (req, res) => {
     try {
-        const [appData, systemData] = await Promise.all([
-            // Query App DB
-            (async () => {
-                const products = await dbAll(appDb, 'SELECT * FROM products ORDER BY id DESC');
-                const categories = await dbAll(appDb, 'SELECT * FROM categories');
-                const brands = await dbAll(appDb, 'SELECT * FROM brands');
-                const orders = await dbAll(appDb, 'SELECT * FROM orders ORDER BY orderDate DESC');
-                const orderItems = await dbAll(appDb, 'SELECT * FROM order_items');
-                return { products, categories, brands, orders, orderItems };
-            })(),
-            // Query System DB
-            (async () => {
-                const storeSettings = await dbGet(systemDb, 'SELECT * FROM store_settings WHERE id = 1');
-                const users = await dbAll(systemDb, 'SELECT id, name, email, phone, addresses, role FROM users');
-                return { storeSettings, users };
-            })()
-        ]);
-        
-        const processedOrders = appData.orders.map(order => {
-            const itemsForOrder = appData.orderItems.filter(item => item.order_id === order.id);
+        const [products] = await pool.query('SELECT * FROM products ORDER BY id DESC');
+        const [categories] = await pool.query('SELECT * FROM categories');
+        const [brands] = await pool.query('SELECT * FROM brands');
+        const [orders] = await pool.query('SELECT * FROM orders ORDER BY orderDate DESC');
+        const [orderItems] = await pool.query('SELECT * FROM order_items');
+        const [storeSettingsRows] = await pool.query('SELECT * FROM store_settings WHERE id = 1');
+        const storeSettings = storeSettingsRows[0] || { id: 1, logo: '', slides: '[]' };
+        const [users] = await pool.query('SELECT id, name, email, phone, addresses, role FROM users');
+
+        const processedOrders = orders.map(order => {
+            const itemsForOrder = orderItems.filter(item => item.order_id === order.id);
             const parsedItems = itemsForOrder.map(item => parseJsonFields(item, ['product']));
-            
             let productSummary = 'Không có sản phẩm';
-            if (parsedItems.length > 0) {
-                const firstProduct = parsedItems[0].product?.product;
-                if (firstProduct && firstProduct.name) {
-                    productSummary = firstProduct.name;
-                    if (parsedItems.length > 1) {
-                        productSummary += ` và ${parsedItems.length - 1} sản phẩm khác`;
-                    }
+            if (parsedItems.length > 0 && parsedItems[0].product && parsedItems[0].product.product) {
+                productSummary = parsedItems[0].product.product.name;
+                if (parsedItems.length > 1) {
+                    productSummary += ` và ${parsedItems.length - 1} sản phẩm khác`;
                 }
             }
-            
-            return {
-                ...order,
-                items: parsedItems,
-                productSummary: productSummary,
-            };
+            return { ...order, items: parsedItems, productSummary };
         });
 
         res.json({
-            products: appData.products.map(p => parseJsonFields(p, ['images', 'specs', 'options', 'reviews'])),
-            categories: appData.categories,
-            brands: appData.brands,
-            storeSettings: parseJsonFields(systemData.storeSettings, ['slides']),
-            users: systemData.users.map(u => parseJsonFields(u, ['addresses'])),
+            products: products.map(p => parseJsonFields(p, ['images', 'specs', 'options', 'reviews'])),
+            categories,
+            brands: brands.map(b => parseJsonFields(b, ['category_ids'])),
+            storeSettings: parseJsonFields(storeSettings, ['slides']),
+            users: users.map(u => parseJsonFields(u, ['addresses'])),
             orders: processedOrders,
         });
-
     } catch (err) {
         handleError(res, 500, `Lỗi khi lấy dữ liệu khởi tạo: ${err.message}`);
     }
 });
 
-// == AUTH (System DB) ==
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const user = await dbGet(systemDb, 'SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
-        if (user) {
-            const { password, ...userWithoutPassword } = user;
+        const [rows] = await pool.query('SELECT * FROM users WHERE email = ? AND password = ?', [email, password]);
+        if (rows[0]) {
+            const { password, ...userWithoutPassword } = rows[0];
             res.json(parseJsonFields(userWithoutPassword, ['addresses']));
         } else {
             handleError(res, 401, 'Email hoặc mật khẩu không đúng');
         }
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.post('/api/register', async (req, res) => {
     const { name, email, phone, password, address } = req.body;
     try {
-        const existingUser = await dbGet(systemDb, 'SELECT id FROM users WHERE email = ?', [email]);
-        if (existingUser) {
-            return handleError(res, 409, 'Email này đã tồn tại.');
-        }
+        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+        if (existing.length > 0) return handleError(res, 409, 'Email này đã tồn tại.');
 
-        const addresses = address ? JSON.stringify([address]) : JSON.stringify([]);
         const newUserId = `user-${Date.now()}`;
-        await dbRun(systemDb,
-            'INSERT INTO users (id, name, email, phone, password, addresses, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [newUserId, name, email, phone, password, addresses, 'customer']
-        );
+        await pool.query('INSERT INTO users (id, name, email, phone, password, addresses, role) VALUES (?, ?, ?, ?, ?, ?, ?)', [newUserId, name, email, phone, password, address ? JSON.stringify([address]) : '[]', 'customer']);
         
-        const newUser = await dbGet(systemDb, 'SELECT id, name, email, phone, addresses, role FROM users WHERE id = ?', [newUserId]);
-        res.status(201).json(parseJsonFields(newUser, ['addresses']));
-
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
-});
-
-// NEW: Get user profile by ID
-app.get('/api/users/:userId', async (req, res) => {
-    const { userId } = req.params;
-    try {
-        const user = await dbGet(systemDb, 'SELECT id, name, email, phone, addresses, role FROM users WHERE id = ?', [userId]);
-        if (user) {
-            res.json(parseJsonFields(user, ['addresses']));
-        } else {
-            handleError(res, 404, 'Không tìm thấy người dùng.');
-        }
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
-});
-
-// == PRODUCTS (App DB) ==
-// NEW: Get single product by ID
-app.get('/api/products/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const product = await dbGet(appDb, 'SELECT * FROM products WHERE id = ?', [id]);
-        if (product) {
-            res.json(parseJsonFields(product, ['images', 'specs', 'options', 'reviews']));
-        } else {
-            handleError(res, 404, 'Không tìm thấy sản phẩm');
-        }
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+        const [users] = await pool.query('SELECT id, name, email, phone, addresses, role FROM users WHERE id = ?', [newUserId]);
+        res.status(201).json(parseJsonFields(users[0], ['addresses']));
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.post('/api/products', async (req, res) => {
     try {
         const p = req.body;
-        const newProduct = {
-            id: `${p.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')}-${Date.now()}`,
-            ...p,
-            rating: 0,
-            reviewCount: 0,
-            reviews: []
-        };
-        await dbRun(appDb,
-            `INSERT INTO products (id, name, brand, category, price, originalPrice, images, description, shortDescription, specs, options, rating, reviewCount, reviews, isFeatured, isBestSeller)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                newProduct.id, newProduct.name, newProduct.brand, newProduct.category, newProduct.price, newProduct.originalPrice,
-                JSON.stringify(newProduct.images), newProduct.description, newProduct.shortDescription, JSON.stringify(newProduct.specs),
-                JSON.stringify(newProduct.options), newProduct.rating, newProduct.reviewCount, JSON.stringify(newProduct.reviews),
-                newProduct.isFeatured ? 1 : 0, newProduct.isBestSeller ? 1 : 0
-            ]
-        );
+        const newProduct = { ...p, id: `${p.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')}-${Date.now()}`, rating: 0, reviewCount: 0, reviews: [] };
+        await pool.query(`INSERT INTO products (id, name, brand, category, price, originalPrice, images, description, shortDescription, specs, options, rating, reviewCount, reviews, isFeatured, isBestSeller) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [newProduct.id, newProduct.name, newProduct.brand, newProduct.category, newProduct.price, newProduct.originalPrice, JSON.stringify(newProduct.images), newProduct.description, newProduct.shortDescription, JSON.stringify(newProduct.specs), JSON.stringify(newProduct.options), newProduct.rating, newProduct.reviewCount, JSON.stringify(newProduct.reviews), newProduct.isFeatured, newProduct.isBestSeller]);
         res.status(201).json(newProduct);
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.put('/api/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const p = req.body;
-        await dbRun(appDb,
-            `UPDATE products SET name = ?, brand = ?, category = ?, price = ?, originalPrice = ?, images = ?, description = ?, shortDescription = ?, specs = ?, options = ?, isFeatured = ?, isBestSeller = ? WHERE id = ?`,
-            [
-                p.name, p.brand, p.category, p.price, p.originalPrice, JSON.stringify(p.images), p.description, p.shortDescription,
-                JSON.stringify(p.specs), JSON.stringify(p.options), p.isFeatured ? 1 : 0, p.isBestSeller ? 1 : 0, id
-            ]
-        );
-        const updatedProduct = await dbGet(appDb, 'SELECT * FROM products WHERE id = ?', [id]);
-        res.json(parseJsonFields(updatedProduct, ['images', 'specs', 'options', 'reviews']));
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+        await pool.query(`UPDATE products SET name = ?, brand = ?, category = ?, price = ?, originalPrice = ?, images = ?, description = ?, shortDescription = ?, specs = ?, options = ?, isFeatured = ?, isBestSeller = ? WHERE id = ?`, [p.name, p.brand, p.category, p.price, p.originalPrice, JSON.stringify(p.images), p.description, p.shortDescription, JSON.stringify(p.specs), JSON.stringify(p.options), p.isFeatured, p.isBestSeller, id]);
+        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
+        res.json(parseJsonFields(rows[0], ['images', 'specs', 'options', 'reviews']));
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        
-        // Logic kiểm tra sản phẩm trong đơn hàng đã được xóa bỏ theo yêu cầu.
-        // Thông tin sản phẩm trong các đơn hàng cũ được giữ lại (denormalized) 
-        // trong bảng order_items, nên việc xóa sản phẩm không ảnh hưởng đến lịch sử.
-        
-        const result = await dbRun(appDb, 'DELETE FROM products WHERE id = ?', [id]);
-        if (result.changes > 0) {
-            res.status(204).send();
-        } else {
-            handleError(res, 404, 'Không tìm thấy sản phẩm');
-        }
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+        res.status(204).send();
+    } catch (err) { handleError(res, 500, err.message); }
 });
-
 
 app.post('/api/products/:id/reviews', async (req, res) => {
     const { id: productId } = req.params;
     const { author, rating, comment } = req.body;
     try {
-        const product = await dbGet(appDb, 'SELECT * FROM products WHERE id = ?', [productId]);
-        if (product) {
-            const reviews = JSON.parse(product.reviews || '[]');
-            const newReview = { id: Date.now(), author, rating, comment, date: new Date().toISOString() };
-            reviews.unshift(newReview);
+        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
+        if (rows[0]) {
+            const reviews = parseJsonFields(rows[0], ['reviews']).reviews || [];
+            reviews.unshift({ id: Date.now(), author, rating, comment, date: new Date().toISOString() });
             const reviewCount = reviews.length;
-            const newRating = parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1));
-
-            await dbRun(appDb, 'UPDATE products SET reviews = ?, rating = ?, reviewCount = ? WHERE id = ?', [JSON.stringify(reviews), newRating, reviewCount, productId]);
-            
-            const updatedProduct = await dbGet(appDb, 'SELECT * FROM products WHERE id = ?', [productId]);
-            res.status(201).json(parseJsonFields(updatedProduct, ['images', 'specs', 'options', 'reviews']));
-        } else {
-            handleError(res, 404, 'Không tìm thấy sản phẩm');
-        }
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+            const newRating = parseFloat((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount).toFixed(1));
+            await pool.query('UPDATE products SET reviews = ?, rating = ?, reviewCount = ? WHERE id = ?', [JSON.stringify(reviews), newRating, reviewCount, productId]);
+            const [updated] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
+            res.status(201).json(parseJsonFields(updated[0], ['images', 'specs', 'options', 'reviews']));
+        } else { handleError(res, 404, 'Không tìm thấy sản phẩm'); }
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
-// == CATEGORIES & BRANDS (App DB) ==
 app.post('/api/categories', async (req, res) => {
     try {
         const { name, image } = req.body;
         const id = `${name.toLowerCase().replace(/ /g, '-')}-${Date.now()}`;
-        await dbRun(appDb, 'INSERT INTO categories (id, name, image) VALUES (?, ?, ?)', [id, name, image]);
+        await pool.query('INSERT INTO categories (id, name, image) VALUES (?, ?, ?)', [id, name, image]);
         res.status(201).json({ id, name, image });
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.put('/api/categories/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const { name, image } = req.body;
-        await dbRun(appDb, 'UPDATE categories SET name = ?, image = ? WHERE id = ?', [name, image, id]);
-        res.json({ id, name, image });
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+        await pool.query('UPDATE categories SET name = ?, image = ? WHERE id = ?', [req.body.name, req.body.image, req.params.id]);
+        res.json({ ...req.body, id: req.params.id });
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.delete('/api/categories/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const category = await dbGet(appDb, 'SELECT * FROM categories WHERE id = ?', [id]);
-        if (!category) return handleError(res, 404, 'Không tìm thấy danh mục');
-        
-        const inUse = await dbGet(appDb, 'SELECT 1 FROM products WHERE category = ? LIMIT 1', [category.name]);
-        if (inUse) {
-            return handleError(res, 409, 'Không thể xóa danh mục vì vẫn còn sản phẩm đang sử dụng.');
-        }
-        await dbRun(appDb, 'DELETE FROM categories WHERE id = ?', [id]);
+        await pool.query('DELETE FROM categories WHERE id = ?', [req.params.id]);
         res.status(204).send();
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.post('/api/brands', async (req, res) => {
     try {
-        const { name, logo } = req.body;
+        const { name, logo, category_ids } = req.body;
         const id = `${name.toLowerCase().replace(/ /g, '-')}-${Date.now()}`;
-        await dbRun(appDb, 'INSERT INTO brands (id, name, logo) VALUES (?, ?, ?)', [id, name, logo]);
-        res.status(201).json({ id, name, logo });
+        await pool.query('INSERT INTO brands (id, name, logo, category_ids) VALUES (?, ?, ?, ?)', [id, name, logo, JSON.stringify(category_ids || [])]);
+        res.status(201).json({ id, name, logo, category_ids: category_ids || [] });
     } catch(err) { handleError(res, 500, err.message); }
 });
 
 app.put('/api/brands/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const { name, logo } = req.body;
-        await dbRun(appDb, 'UPDATE brands SET name = ?, logo = ? WHERE id = ?', [name, logo, id]);
-        res.json({ id, name, logo });
+        const { name, logo, category_ids } = req.body;
+        await pool.query('UPDATE brands SET name = ?, logo = ?, category_ids = ? WHERE id = ?', [name, logo, JSON.stringify(category_ids || []), req.params.id]);
+        res.json({ ...req.body, id: req.params.id });
     } catch (err) { handleError(res, 500, err.message); }
 });
 
 app.delete('/api/brands/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const brand = await dbGet(appDb, 'SELECT * FROM brands WHERE id = ?', [id]);
-        if (!brand) return handleError(res, 404, 'Không tìm thấy thương hiệu');
-
-        const inUse = await dbGet(appDb, 'SELECT 1 FROM products WHERE brand = ? LIMIT 1', [brand.name]);
-        if (inUse) {
-            return handleError(res, 409, 'Không thể xóa thương hiệu vì vẫn còn sản phẩm đang sử dụng.');
-        }
-        await dbRun(appDb, 'DELETE FROM brands WHERE id = ?', [id]);
+        await pool.query('DELETE FROM brands WHERE id = ?', [req.params.id]);
         res.status(204).send();
     } catch (err) { handleError(res, 500, err.message); }
 });
 
-// == ORDERS (App DB) ==
-// NEW: Get order history for a specific user
-app.get('/api/users/:userId/orders', async (req, res) => {
-    const { userId } = req.params;
-    try {
-        const userOrders = await dbAll(appDb, 'SELECT * FROM orders WHERE userId = ? ORDER BY orderDate DESC', [userId]);
-
-        if (userOrders.length === 0) {
-            return res.json([]);
-        }
-
-        const orderIds = userOrders.map(o => o.id);
-        const placeholders = orderIds.map(() => '?').join(',');
-        const allOrderItems = await dbAll(appDb, `SELECT * FROM order_items WHERE order_id IN (${placeholders})`, orderIds);
-        
-        const processedOrders = userOrders.map(order => {
-            const itemsForOrder = allOrderItems.filter(item => item.order_id === order.id);
-            const parsedItems = itemsForOrder.map(item => parseJsonFields(item, ['product']));
-            
-            let productSummary = 'Không có sản phẩm';
-            if (parsedItems.length > 0 && parsedItems[0].product && parsedItems[0].product.product) {
-                 productSummary = parsedItems[0].product.product.name;
-                if (parsedItems.length > 1) {
-                    productSummary += ` và ${parsedItems.length - 1} sản phẩm khác`;
-                }
-            }
-            
-            return {
-                ...order,
-                items: parsedItems,
-                productSummary: productSummary,
-            };
-        });
-
-        res.json(processedOrders);
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
-});
-
 app.post('/api/orders', async (req, res) => {
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
         const { name, phone, address, paymentMethod, items, total, userId } = req.body;
         const orderId = `ORDER-${Date.now()}`;
-        
-        appDb.serialize(async () => {
-            appDb.run('BEGIN TRANSACTION');
-            try {
-                await dbRun(appDb,
-                    `INSERT INTO orders (id, customerName, phone, address, total, status, orderDate, paymentMethod, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [orderId, name, phone, address, total, 'Chờ xác nhận', new Date().toISOString(), paymentMethod, userId]
-                );
-                for (const item of items) {
-                    await dbRun(appDb,
-                        `INSERT INTO order_items (order_id, product_id, quantity, price, product) VALUES (?, ?, ?, ?, ?)`,
-                        [orderId, item.product.id, item.quantity, item.product.price, JSON.stringify(item)]
-                    );
-                }
-                await dbRun(appDb, 'COMMIT');
-                
-                const newOrder = await dbGet(appDb, 'SELECT * FROM orders WHERE id = ?', [orderId]);
-                const newOrderItems = await dbAll(appDb, 'SELECT * FROM order_items WHERE order_id = ?', [orderId]);
-                
-                res.status(201).json({
-                    ...newOrder,
-                    items: newOrderItems.map(item => parseJsonFields(item, ['product']))
-                });
-
-            } catch(e) {
-                await dbRun(appDb, 'ROLLBACK');
-                throw e;
-            }
-        });
+        await connection.query(`INSERT INTO orders (id, customerName, phone, address, total, status, orderDate, paymentMethod, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [orderId, name, phone, address, total, 'Chờ xác nhận', new Date(), paymentMethod, userId]);
+        for (const item of items) {
+            await connection.query(`INSERT INTO order_items (order_id, product_id, quantity, price, product) VALUES (?, ?, ?, ?, ?)`, [orderId, item.product.id, item.quantity, item.product.price, JSON.stringify(item)]);
+        }
+        await connection.commit();
+        const [order] = await connection.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+        const [orderItems] = await connection.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+        res.status(201).json({ ...order[0], items: orderItems.map(i => parseJsonFields(i, ['product'])) });
     } catch (err) {
+        await connection.rollback();
         handleError(res, 500, err.message);
+    } finally {
+        connection.release();
     }
 });
 
 app.put('/api/orders/:id/status', async (req, res) => {
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-        const result = await dbRun(appDb, 'UPDATE orders SET status = ? WHERE id = ?', [status, id]);
-        if (result.changes > 0) {
-            res.status(204).send();
-        } else {
-            handleError(res, 404, 'Không tìm thấy đơn hàng');
-        }
-    } catch (err) {
-        handleError(res, 500, err.message);
-    }
+        await pool.query('UPDATE orders SET status = ? WHERE id = ?', [req.body.status, req.params.id]);
+        res.status(204).send();
+    } catch (err) { handleError(res, 500, err.message); }
 });
 
-// == STORE SETTINGS (System DB) ==
 app.put('/api/settings', async (req, res) => {
     try {
         const { logo, slides } = req.body;
-        await dbRun(systemDb,
-            `UPDATE store_settings SET logo = ?, slides = ? WHERE id = 1`,
-            [logo, JSON.stringify(slides)]
-        );
-        const updatedSettings = await dbGet(systemDb, 'SELECT * FROM store_settings WHERE id = 1');
-        res.json(parseJsonFields(updatedSettings, ['slides']));
-    } catch(err) {
-        handleError(res, 500, err.message);
-    }
+        await pool.query(`INSERT INTO store_settings (id, logo, slides) VALUES (1, ?, ?) ON DUPLICATE KEY UPDATE logo = ?, slides = ?`, [logo, JSON.stringify(slides), logo, JSON.stringify(slides)]);
+        const [rows] = await pool.query('SELECT * FROM store_settings WHERE id = 1');
+        res.json(parseJsonFields(rows[0], ['slides']));
+    } catch(err) { handleError(res, 500, err.message); }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Backend server đang chạy trên http://localhost:${PORT}`);
-  console.log(`Chế độ: Hai cơ sở dữ liệu SQLite đang hoạt động.`);
-  console.log(`- Dữ liệu ứng dụng (sản phẩm, đơn hàng) được lưu tại: 'banhangcongnghe.db'`);
-  console.log(`- Dữ liệu hệ thống (người dùng, cài đặt) được lưu tại: 'system.db'`);
+app.listen(PORT, async () => {
+    try {
+        const conn = await pool.getConnection();
+        console.log(`Đã kết nối thành công tới MySQL database '${dbConfig.database}'.`);
+        conn.release();
+        await initializeDatabase();
+        console.log(`Backend server đang chạy trên http://localhost:${PORT}`);
+    } catch (err) {
+        console.error("\nKHÔNG THỂ KẾT NỐI HOẶC THIẾT LẬP MYSQL DATABASE.");
+        console.error("Vui lòng kiểm tra lại thông tin trong 'dbConfig' tại file server.js:");
+        console.error(`- Host: ${dbConfig.host}`);
+        console.error(`- User: ${dbConfig.user}`);
+        console.error(`- Database: ${dbConfig.database}`);
+        console.error("Cũng hãy chắc chắn rằng địa chỉ IP của bạn đã được cho phép kết nối tới server MySQL (Remote MySQL).");
+        console.error("Chi tiết lỗi:", err.message);
+        process.exit(1);
+    }
 });

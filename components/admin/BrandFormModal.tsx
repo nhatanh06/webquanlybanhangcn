@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Brand } from '../../types';
+import { useAppContext } from '../../context/AppContext';
 
 interface BrandFormModalProps {
   isOpen: boolean;
@@ -19,22 +20,27 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const BrandFormModal: React.FC<BrandFormModalProps> = ({ isOpen, onClose, onSave, brand }) => {
-  const [formData, setFormData] = useState({ name: '', logo: '' });
+  const { categories } = useAppContext();
+  const [formData, setFormData] = useState({ 
+      name: '', 
+      logo: '',
+      category_ids: [] as string[]
+  });
   
   const formInputClasses = "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-black font-semibold placeholder-gray-400 px-3 py-2 transition-colors hover:bg-gray-100";
 
   useEffect(() => {
     if (brand) {
-      setFormData({ name: brand.name, logo: brand.logo });
+      setFormData({ name: brand.name, logo: brand.logo, category_ids: brand.category_ids || [] });
     } else {
-      setFormData({ name: '', logo: '' });
+      setFormData({ name: '', logo: '', category_ids: [] });
     }
   }, [brand, isOpen]);
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, name: e.target.value }));
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
+  
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
@@ -49,6 +55,15 @@ const BrandFormModal: React.FC<BrandFormModalProps> = ({ isOpen, onClose, onSave
   
   const handleRemoveLogo = () => {
     setFormData(prev => ({ ...prev, logo: '' }));
+  };
+
+  const handleCategorySelection = (categoryId: string) => {
+    setFormData(prev => {
+        const newCategoryIds = prev.category_ids.includes(categoryId)
+            ? prev.category_ids.filter(id => id !== categoryId)
+            : [...prev.category_ids, categoryId];
+        return { ...prev, category_ids: newCategoryIds };
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -72,7 +87,7 @@ const BrandFormModal: React.FC<BrandFormModalProps> = ({ isOpen, onClose, onSave
           <div className="p-6 space-y-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">Tên thương hiệu</label>
-                <input type="text" id="name" name="name" value={formData.name} onChange={handleNameChange} required className={formInputClasses}/>
+                <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required className={formInputClasses}/>
               </div>
                <div>
                 <label className="block text-sm font-medium text-gray-700">Logo thương hiệu</label>
@@ -91,6 +106,23 @@ const BrandFormModal: React.FC<BrandFormModalProps> = ({ isOpen, onClose, onSave
                         </button>
                     </div>
                 )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Thuộc danh mục</label>
+                <div className="mt-2 space-y-2 max-h-40 overflow-y-auto border p-3 rounded-md bg-gray-50">
+                    {categories.map(cat => (
+                        <div key={cat.id} className="flex items-center">
+                            <input
+                                type="checkbox"
+                                id={`cat-${cat.id}`}
+                                checked={formData.category_ids.includes(cat.id)}
+                                onChange={() => handleCategorySelection(cat.id)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor={`cat-${cat.id}`} className="ml-2 text-sm text-gray-700 cursor-pointer">{cat.name}</label>
+                        </div>
+                    ))}
+                </div>
               </div>
           </div>
           <div className="p-6 bg-gray-50 flex justify-end space-x-3 border-t">

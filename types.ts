@@ -48,6 +48,7 @@ export interface Brand {
   id: string;
   name: string;
   logo: string;
+  category_ids: string[]; // Mối liên kết tới các danh mục
 }
 
 // Định nghĩa cấu trúc cho một sản phẩm trong giỏ hàng
@@ -70,7 +71,7 @@ export interface OrderItem {
     product: CartItem;
 }
 
-// Định nghĩa các trạng thái của đơn hàng
+// Định nghĩa các trạng thái của đơn hàng (sử dụng tiếng Việt có dấu)
 export enum OrderStatus {
   Pending = 'Chờ xác nhận',
   Processing = 'Đang xử lý',

@@ -4,7 +4,7 @@ import { Brand } from '../../types';
 import BrandFormModal from '../../components/admin/BrandFormModal';
 
 const AdminBrandsPage: React.FC = () => {
-    const { brands, addBrand, updateBrand, deleteBrand, isSubmitting } = useAppContext();
+    const { brands, categories, addBrand, updateBrand, deleteBrand, isSubmitting } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
 
@@ -57,26 +57,36 @@ const AdminBrandsPage: React.FC = () => {
 
             <div className="bg-white p-6 rounded-lg shadow-lg">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left table-auto">
+                    <table className="w-full text-left table-auto min-w-[600px]">
                         <thead>
                             <tr className="bg-gray-50 border-b">
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên thương hiệu</th>
+                                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Danh mục liên kết</th>
                                 <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {brands.map(brand => (
+                            {brands.map(brand => {
+                                const brandCategories = (brand.category_ids || [])
+                                    .map(catId => categories.find(c => c.id === catId)?.name)
+                                    .filter(Boolean)
+                                    .join(', ');
+
+                                return (
                                 <tr key={brand.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="p-3 flex items-center">
                                         <img src={brand.logo} alt={brand.name} className="w-16 h-12 object-contain mr-4"/>
                                         <span className="font-medium text-gray-900">{brand.name}</span>
+                                    </td>
+                                    <td className="p-3 text-gray-700 text-sm">
+                                        {brandCategories || <span className="text-gray-400 italic">Chưa có</span>}
                                     </td>
                                     <td className="p-3 whitespace-nowrap">
                                         <button onClick={() => handleOpenEditModal(brand)} className="text-blue-600 hover:text-blue-800 mr-4 font-medium" disabled={isSubmitting}>Sửa</button>
                                         <button onClick={() => handleDeleteBrand(brand)} className="text-red-600 hover:text-red-800 font-medium" disabled={isSubmitting}>Xóa</button>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
                 </div>

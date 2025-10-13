@@ -1,5 +1,6 @@
 // hooks/useOrders.ts
-import { useCallback } from 'react';
+// FIX: Import React to resolve 'Cannot find namespace React' error.
+import React, { useCallback } from 'react';
 import { Order, OrderStatus, CartItem, User } from '../types';
 import { apiRequest } from '../services/api';
 

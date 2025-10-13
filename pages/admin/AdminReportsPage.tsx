@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { OrderStatus, OrderItem } from '../../types';
+import { OrderStatus, OrderItem, Order } from '../../types';
 
 // Icons for Stat Cards
 const Icons = {
@@ -20,21 +20,44 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
     </div>
 );
 
+type TimeRange = 'all' | '30d' | '7d' | 'today';
+
 const AdminReportsPage: React.FC = () => {
-    const { orders, users, products } = useAppContext();
+    const { orders, users } = useAppContext();
+    const [timeRange, setTimeRange] = useState<TimeRange>('all');
     const [copySuccess, setCopySuccess] = useState('');
 
+    const filteredOrders = useMemo(() => {
+        const now = new Date();
+        if (timeRange === 'all') {
+            return orders;
+        }
+
+        let startDate = new Date();
+        if (timeRange === 'today') {
+            startDate.setHours(0, 0, 0, 0);
+        } else if (timeRange === '7d') {
+            startDate.setDate(now.getDate() - 7);
+            startDate.setHours(0, 0, 0, 0);
+        } else if (timeRange === '30d') {
+            startDate.setDate(now.getDate() - 30);
+            startDate.setHours(0, 0, 0, 0);
+        }
+
+        return orders.filter(order => new Date(order.orderDate) >= startDate);
+    }, [orders, timeRange]);
+
+
     const reportData = useMemo(() => {
-        const totalRevenue = orders.filter(o => o.status === OrderStatus.Completed).reduce((s, o) => s + o.total, 0);
-        const orderStatusCounts = orders.reduce((acc, order) => {
+        const totalRevenue = filteredOrders.filter(o => o.status === OrderStatus.Completed).reduce((s, o) => s + o.total, 0);
+        const orderStatusCounts = filteredOrders.reduce((acc, order) => {
             acc[order.status] = (acc[order.status] || 0) + 1;
             return acc;
         }, {} as { [key in OrderStatus]?: number });
         const totalCustomers = users.filter(user => user.role === 'customer').length;
         
         const productSales = new Map<string, { name: string, quantity: number, revenue: number }>();
-        orders.forEach(order => {
-            // FIX: Access the nested CartItem object (item.product) to correctly aggregate sales data.
+        filteredOrders.forEach((order: Order) => {
             order.items.forEach((item: OrderItem) => {
                 const cartItem = item.product;
                 const existing = productSales.get(cartItem.product.id) || { name: cartItem.product.name, quantity: 0, revenue: 0 };
@@ -45,8 +68,8 @@ const AdminReportsPage: React.FC = () => {
         });
         const bestSellingProducts = Array.from(productSales.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
 
-        return { totalRevenue, orderStatusCounts, totalCustomers, bestSellingProducts };
-    }, [orders, users]);
+        return { totalRevenue, orderStatusCounts, totalCustomers, bestSellingProducts, totalOrders: filteredOrders.length };
+    }, [filteredOrders, users]);
 
     const copyToClipboard = (data: any[], headers: string[]) => {
         const csvContent = [headers.join('\t'), ...data.map(row => Object.values(row).join('\t'))].join('\n');
@@ -56,13 +79,36 @@ const AdminReportsPage: React.FC = () => {
         }).catch(() => { setCopySuccess('Lỗi!'); setTimeout(() => setCopySuccess(''), 2000); });
     };
 
+    const timeRangeLabels: Record<TimeRange, string> = {
+        all: 'Toàn thời gian',
+        '30d': '30 ngày qua',
+        '7d': '7 ngày qua',
+        today: 'Hôm nay'
+    };
+
     return (
         <div>
             <h1 className="text-2xl lg:text-3xl font-bold mb-6 text-gray-900">Báo cáo & Thống kê</h1>
 
+            <div className="flex flex-wrap gap-2 mb-6">
+                {(Object.keys(timeRangeLabels) as TimeRange[]).map(range => (
+                    <button
+                        key={range}
+                        onClick={() => setTimeRange(range)}
+                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                            timeRange === range
+                                ? 'bg-blue-600 text-white shadow'
+                                : 'bg-white text-gray-700 hover:bg-gray-100 border'
+                        }`}
+                    >
+                        {timeRangeLabels[range]}
+                    </button>
+                ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatCard title="Doanh thu (Hoàn thành)" value={`${reportData.totalRevenue.toLocaleString('vi-VN')}₫`} icon={<Icons.Revenue />} />
-                <StatCard title="Tổng đơn hàng" value={orders.length} icon={<Icons.Orders />} />
+                <StatCard title="Tổng đơn hàng" value={reportData.totalOrders} icon={<Icons.Orders />} />
                 <StatCard title="Tổng khách hàng" value={reportData.totalCustomers} icon={<Icons.Customers />} />
             </div>
 

@@ -14,7 +14,7 @@ const setupAppDatabase = (db) => {
                 name TEXT NOT NULL,
                 logo TEXT
             );
-            
+
             CREATE TABLE IF NOT EXISTS products (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -76,7 +76,7 @@ const setupAppDatabase = (db) => {
             const brandStmt = db.prepare("INSERT INTO brands (id, name, logo) VALUES (?, ?, ?)");
             data.INITIAL_BRANDS.forEach(brand => brandStmt.run(brand.id, brand.name, brand.logo));
             brandStmt.finalize();
-
+            
             // Insert Products
             const productStmt = db.prepare(`INSERT INTO products (id, name, brand, category, price, originalPrice, images, description, shortDescription, specs, options, rating, reviewCount, reviews, isFeatured, isBestSeller) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
             data.INITIAL_PRODUCTS.forEach(p => {

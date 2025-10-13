@@ -30,9 +30,9 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4 text-gray-800">Liên hệ</h3>
             <ul className="space-y-2 text-gray-500">
-              <li>Địa chỉ: 123 Đường ABC, Quận 1, TP.HCM</li>
+              <li>Địa chỉ: Ấp Cầu Xéo, Xã Long Thành, Đồng Nai</li>
               <li>Email: support@akstore.com</li>
-              <li>Điện thoại: (028) 3812 3456</li>
+              <li>Điện thoại: (081) 3121 270</li>
             </ul>
           </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppContext } from '../../context/AppContext';
+import { OrderStatus } from '../../types';
 
 // Icons for Stat Cards
 const Icons = {
@@ -8,6 +9,10 @@ const Icons = {
     Products: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
 };
 
+// Helper function to format currency consistently
+const formatCurrency = (value: number) => {
+    return value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+};
 
 const DashboardPage: React.FC = () => {
     const { products, orders } = useAppContext();
@@ -35,7 +40,7 @@ const DashboardPage: React.FC = () => {
             
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard title="Tổng doanh thu" value={`${totalRevenue.toLocaleString('vi-VN')}₫`} icon={<Icons.Revenue />} />
+                <StatCard title="Tổng doanh thu" value={formatCurrency(totalRevenue)} icon={<Icons.Revenue />} />
                 <StatCard title="Tổng số đơn hàng" value={totalOrders} icon={<Icons.Orders />} />
                 <StatCard title="Tổng số sản phẩm" value={totalProducts} icon={<Icons.Products />} />
             </div>
@@ -60,9 +65,15 @@ const DashboardPage: React.FC = () => {
                                     <td className="p-3 font-medium text-blue-600">#{order.id}</td>
                                     <td className="p-3 text-gray-700">{order.productSummary || 'N/A'}</td>
                                     <td className="p-3 text-gray-700">{order.customerName}</td>
-                                    <td className="p-3 text-gray-700">{order.total.toLocaleString('vi-VN')}₫</td>
+                                    <td className="p-3 text-gray-700">{formatCurrency(order.total)}</td>
                                     <td className="p-3">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'Hoàn thành' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                        {/* FIX: Use OrderStatus enum for comparison to avoid type errors and ensure correctness.
+                                            Also, add styling for cancelled orders to be consistent with other pages. */}
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                            order.status === OrderStatus.Completed ? 'bg-green-100 text-green-800' : 
+                                            order.status === OrderStatus.Cancelled ? 'bg-red-100 text-red-800' :
+                                            'bg-yellow-100 text-yellow-800'
+                                        }`}>
                                             {order.status}
                                         </span>
                                     </td>

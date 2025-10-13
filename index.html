@@ -4,8 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AkStore</title>
+
+    <!-- Thêm Google Font (Inter) hỗ trợ đầy đủ tiếng Việt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
+    
+    <!-- Cấu hình Tailwind CSS để sử dụng font Inter làm mặc định -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+
+    <script type="importmap">
 {
   "imports": {
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
@@ -16,7 +36,7 @@
 }
 </script>
 </head>
-  <body class="bg-white">
+  <body class="bg-white font-sans">
     <div id="root"></div>
     <!-- Thêm thư viện jsPDF và html2canvas để tạo hóa đơn -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

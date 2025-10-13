@@ -1,5 +1,6 @@
 // hooks/useAdminSettings.ts
-import { useCallback } from 'react';
+// FIX: Import React to resolve 'Cannot find namespace React' error.
+import React, { useCallback } from 'react';
 import { StoreSettings } from '../types';
 import { apiRequest } from '../services/api';
 

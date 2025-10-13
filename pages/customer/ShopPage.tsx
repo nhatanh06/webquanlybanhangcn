@@ -135,18 +135,25 @@ const ShopPage: React.FC = () => {
     }, [products, filters]);
 
     const availableBrands = useMemo<Brand[]>(() => {
-        // Nếu không có danh mục nào được chọn, hiển thị TẤT CẢ các thương hiệu.
-        // Điều này đảm bảo thương hiệu mới tạo sẽ luôn xuất hiện trên trang cửa hàng chính.
+        // Nếu không có danh mục nào được chọn trong bộ lọc, hiển thị tất cả các thương hiệu có sản phẩm
         if (!filters.category) {
-            return [...brands].sort((a, b) => a.name.localeCompare(b.name));
+            const allBrandNamesWithProducts = [...new Set(products.map(p => p.brand))];
+            return brands
+                .filter(b => allBrandNamesWithProducts.includes(b.name))
+                .sort((a, b) => a.name.localeCompare(b.name));
         }
-        
-        // Nếu một danh mục được chọn, chỉ hiển thị các thương hiệu có sản phẩm trong danh mục đó.
-        // Điều này giúp bộ lọc trở nên phù hợp hơn và tránh các kết quả rỗng.
-        const relevantProducts = products.filter(p => p.category === filters.category);
-        const brandNames = [...new Set(relevantProducts.map(p => p.brand))];
-        return brands.filter(brand => brandNames.includes(brand.name)).sort((a, b) => a.name.localeCompare(b.name));
-    }, [filters.category, products, brands]);
+    
+        // Tìm ID của danh mục đã chọn
+        const selectedCategory = categories.find(c => c.name === filters.category);
+        if (!selectedCategory) {
+            return [];
+        }
+    
+        // Lọc các thương hiệu có chứa ID của danh mục đã chọn trong mảng category_ids
+        return brands
+            .filter(brand => brand.category_ids && brand.category_ids.includes(selectedCategory.id))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [filters.category, categories, brands, products]);
 
 
     return (
@@ -190,7 +197,6 @@ const ShopPage: React.FC = () => {
                             <option value="price-desc">Giá: Giảm dần</option>
                         </select>
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                         {filteredAndSortedProducts.map(product => (
                             <ProductCard key={product.id} product={product} />

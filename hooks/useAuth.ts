@@ -1,5 +1,6 @@
 // hooks/useAuth.ts
-import { useCallback } from 'react';
+// FIX: Import React to resolve 'Cannot find namespace React' error.
+import React, { useCallback } from 'react';
 import { User, CartItem } from '../types';
 import { apiRequest } from '../services/api';
 

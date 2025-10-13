@@ -5,6 +5,7 @@ import { apiRequest } from '../services/api';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { useOrders } from '../hooks/useOrders';
+// FIX: Import the missing useAdminProducts hook.
 import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminCategories } from '../hooks/useAdminCategories';
 import { useAdminBrands } from '../hooks/useAdminBrands';
@@ -46,6 +47,7 @@ interface AppContextType extends AppState {
   clearSuccessfulOrder: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
+  // FIX: Add missing product and review management function definitions to the context type.
   // Admin Product Functions
   addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
@@ -102,7 +104,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsLoading(true);
         setApiError(null);
         const data = await apiRequest<AppState>('/initial-data');
-        setAppState(data);
+        
+        // FIX: Ensure numeric fields from the backend (which may be strings) are correctly parsed into numbers.
+        // This prevents calculation errors (like string concatenation) and formatting issues.
+        const processedData = {
+            ...data,
+            products: data.products.map(p => ({ 
+                ...p, 
+                price: Number(p.price), 
+                originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined 
+            })),
+            orders: data.orders.map(o => ({ 
+                ...o, 
+                total: Number(o.total)
+            })),
+        };
+
+        setAppState(processedData);
       } catch (e: any) {
         setApiError(e.message || 'Không thể kết nối đến server.');
       } finally {
@@ -121,6 +139,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const cartLogic = useCart({ cart, setCart });
   const authLogic = useAuth({ setUser, setCart, setIsSubmitting, setWelcomeMessage });
   const orderLogic = useOrders({ cart, user, getCartTotal: cartLogic.getCartTotal, clearCart: cartLogic.clearCart, setAppState, setSuccessfulOrder, setError, setIsSubmitting });
+  // FIX: Instantiate the admin products hook to make its functions available.
   const adminProductLogic = useAdminProducts({ setAppState, setIsSubmitting, setError });
   const adminCategoryLogic = useAdminCategories({ setAppState, setIsSubmitting, setError });
   const adminBrandLogic = useAdminBrands({ setAppState, setIsSubmitting, setError });
@@ -146,6 +165,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...cartLogic,
       ...authLogic,
       ...orderLogic,
+      // FIX: Spread the product logic functions into the context value.
       ...adminProductLogic,
       ...adminCategoryLogic,
       ...adminBrandLogic,
